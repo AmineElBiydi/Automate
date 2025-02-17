@@ -5,29 +5,26 @@
 
 typedef struct relation relation;
 
-typedef struct node{
-    char Id;
-    bool isFinal;   
-    relation *transition;
-    int transitionCount;
-}node;
-
 typedef struct relation{
     node* nextNode;
     char* etiquette;
     int nbrEtiquette;
 }relation;
 
+typedef struct node{
+    char *Id;
+    bool isFinal;   
+    relation *transition;
+    int transitionCount;
+}node;
+
 typedef struct automate{
-    node** initialNode;
     node* nodes;
+    node** initialNode;
     int  countNode;
+    char Nom[100] ;
 }automate;
 
-int main(){
- 
-    return 0 ;
-}
 
 node* CreateNodes(int NbrNodes){
     node* nodes = malloc(sizeof(node)*NbrNodes);
@@ -95,61 +92,129 @@ relation* Relation(node* InitNode,node* FinalNode , char* etiquette){
     InitNode->transition[InitNode->transitionCount-1].nbrEtiquette = count;
     return InitNode->transition;
 }
+node* findNode(automate* a, const char* id) {
+    for (int i = 0; i < a->countNode; i++) {
+        if (strcmp(a->nodes[i].Id, id) == 0) {
+            return &a->nodes[i];
+        }
+    }
+    return NULL;
+}
 /*
     ======= li kay9ra mn l fichier ======
 */
-automate* ReadFile(char* fileName){
-    FILE* file=fopen(fileName,"r+");
-    char line[50];
-    char *token ;
-    int nbrNodeAllocated=2;
-    if(file==NULL){
-        printf("Erreur : erreur l'ors de l'ouvrage de fichier !\n");
-        return NULL; 
-    }
-    automate*automate =CreateAutomate();
-    if(automate==NULL){
+automate* ReadFile(char* fileName) {
+    FILE* file = fopen(fileName, "r");
+    char line[256];
+    if (!file) {
+        printf("Erreur : Impossible d'ouvrir le fichier !\n");
         return NULL;
     }
-    automate->nodes=CreateNodes(nbrNodeAllocated);
-    if(automate->nodes==NULL){
-        return NULL;
-    }
-    while(fgets(line,sizeof(line),file)!=NULL){
-        token = strtok(line, " [].,!}?= ->{");
-        while(token!=NULL){
-            if(strcasecmp(token,"digraph")||strcasecmp(token,"rankdir")){
-                break;
-            }
-            else if(strcasecmp(token,"node")){
-                token = strtok(NULL," [].,!?=->\n");
-                if(strcasecmp(token,"shape")){
-                    token = strtok(NULL," [].,!?= ->\n");
-                    if(strcasecmp(token,"point")){
-                        break;
-                    }
-                    else if(strcasecmp(token,"circle")){
-                        token = strtok(NULL," [].,!?= ->\n");
-                        while(token!=NULL){
-                            if(automate->countNode < nbrNodeAllocated){
-                                automate->nodes[automate->countNode].Id=token;
-                                automate->countNode++;
+
+    automate* aut = CreateAutomate();
+    if (!aut) return NULL;
+
+    node* startNode = NULL; // Nœud initial (shape=point)
+
+    while (fgets(line, sizeof(line), file)) {
+        // Gestion des nœuds
+        if (strstr(line, "node")) {
+            char* token = strtok(line, " [];=,\t\n");
+            while (token) {
+                if (strcasecmp(token, "node") == 0) {
+                    token = strtok(NULL, " [];=,\t\n");
+                    if (token && strcasecmp(token, "shape") == 0) {
+                        token = strtok(NULL, " [];=,\t\n");
+                        if (token) {
+                            if (strcasecmp(token, "doublecircle") == 0) {
+                                // Final states
+                                token = strtok(NULL, " [],;\t\n");
+                                while (token) {
+                                    node* n = findNode(aut, token);
+                                    if (n) n->isFinal = true;
+                                    token = strtok(NULL, " [],;\t\n");
+                                }
+                            } else if (strcasecmp(token, "point") == 0) {
+                                // Start node (shape=point)
+                                token = strtok(NULL, " [],;\t\n");
+                                if (token) {
+                                    // Créer le nœud de départ
+                                    aut->nodes = realloc(aut->nodes, (aut->countNode + 1) * sizeof(node));
+                                    aut->nodes[aut->countNode].Id = strdup(token);
+                                    aut->nodes[aut->countNode].isFinal = false;
+                                    aut->nodes[aut->countNode].transition = NULL;
+                                    aut->nodes[aut->countNode].transitionCount = 0;
+                                    startNode = &aut->nodes[aut->countNode];
+                                    aut->countNode++;
+                                }
                             }
-                            else{
-                                
-                            }
-                            
                         }
                     }
-                }                    
+                }
+                token = strtok(NULL, " [];=,\t\n");
+            }
+        }
+
+        // Gestion des transitions (edges)
+        if (strstr(line, "->")) {
+            char* src = strtok(line, " ->\t\n");
+            char* arrow = strtok(NULL, " ->\t\n");
+            char* dest = strtok(NULL, " [],;\t\n");
+            char* label = NULL;
+
+            // Extraire le label
+            char* labelPos = strstr(line, "label=");
+            if (labelPos) {
+                label = strchr(labelPos, '"');
+                if (label) {
+                    label++;
+                    char* endLabel = strchr(label, '"');
+                    if (endLabel) *endLabel = '\0';
+                }
             }
 
+            node* srcNode = findNode(aut, src);
+            node* destNode = findNode(aut, dest);
+            if (srcNode && destNode) {
+                Relation(srcNode, destNode, label ? label : "ε");
+            }
+
+            // Si la source est le nœud de départ (shape=point)
+            if (srcNode == startNode) {
+                aut->initialNode = realloc(aut->initialNode, sizeof(node*) * (aut->countNode));
+                aut->initialNode[aut->countNode - 1] = destNode;
+            }
+        }
+    }
+
+    fclose(file);
+    return aut;
+}
+void PrintAutomate(automate* aut) {
+    printf("Nom de l'automate : %s\n", aut->Nom);
+    printf("États initiaux : ");
+    for (int i = 0; i < aut->countNode; i++) {
+        if (aut->initialNode && aut->initialNode[i]) {
+            printf("%s ", aut->initialNode[i]->Id);
+        }
+    }
+    printf("\nÉtats finaux : ");
+    for (int i = 0; i < aut->countNode; i++) {
+        if (aut->nodes[i].isFinal) {
+            printf("%s ", aut->nodes[i].Id);
+        }
+    }
+    printf("\nTransitions :\n");
+    for (int i = 0; i < aut->countNode; i++) {
+        node* n = &aut->nodes[i];
+        for (int j = 0; j < n->transitionCount; j++) {
+            relation* r = &n->transition[j];
+            printf("%s --(%s)--> %s\n", n->Id, r->etiquette, r->nextNode->Id);
         }
     }
 }
-/*
-    ======= menu =====================
-*/  
 
-
+int main(){
+    
+}
 
