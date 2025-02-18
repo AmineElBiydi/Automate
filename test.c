@@ -156,93 +156,65 @@ void WriteAutomateToFile(automate* aut, char* fileName) {
     printf("Automate sauvegarde dans %s\n", fileName);
 }
 
-automate* ReadFile(char* fileName) {
-    FILE* file = fopen(fileName, "r");
-    char line[256];
-    if (!file) {
-        printf("Erreur : Impossible d'ouvrir le fichier !\n");
-        return NULL;
-    }
+// automate* ReadFile(char* fileName) {
+//     FILE* file = fopen(fileName, "r");
+//     if (!file) {
+//         printf("Erreur : Impossible d'ouvrir le fichier !\n");
+//         return NULL;
+//     }
 
-    automate* aut = CreateAutomate();
-    if (!aut) return NULL;
+//     automate* aut = CreateAutomate();
+//     if (!aut) return NULL;
 
-    node* startNode = NULL; // Nœud initial (shape=point)
+//     char buffer[256];
+//     while (fgets(buffer, sizeof(buffer), file)) {
+//         if (strstr(buffer, "Nom de l'automate")) {
+//             sscanf(buffer, "Nom de l'automate : %s", aut->Nom);
+//         } else if (strstr(buffer, "Nombre d'etats")) {
+//             sscanf(buffer, "Nombre d'etats : %d", &aut->countNode);
+//             aut->nodes = CreateNodes(aut->countNode);
+//         } else if (strstr(buffer, "etats initiaux")) {
+//             char id[50];
+//             aut->initialNode = malloc(aut->countNode * sizeof(node*));
+//             int k = 0;
+//             while (sscanf(buffer, "%s", id) == 1) {
+//                 for (int i = 0; i < aut->countNode; i++) {
+//                     if (strcmp(aut->nodes[i].Id, id) == 0) {
+//                         aut->initialNode[k++] = &aut->nodes[i];
+//                     }
+//                 }
+//             }
+//         } else if (strstr(buffer, "etats finaux")) {
+//             char id[50];
+//             while (sscanf(buffer, "%s", id) == 1) {
+//                 for (int i = 0; i < aut->countNode; i++) {
+//                     if (strcmp(aut->nodes[i].Id, id) == 0) {
+//                         aut->nodes[i].isFinal = true;
+//                     }
+//                 }
+//             }
+//         } else if (strstr(buffer, "Transitions")) {
+//             char from[50], to[50], etiquette[50];
+//             while (fscanf(file, "%s --(%s)--> %s", from, etiquette, to) == 3) {
+//                 for (int i = 0; i < aut->countNode; i++) {
+//                     if (strcmp(aut->nodes[i].Id, from) == 0) {
+//                         int j = aut->nodes[i].transitionCount++;
+//                         aut->nodes[i].transition = realloc(aut->nodes[i].transition, aut->nodes[i].transitionCount * sizeof(relation));
+//                         aut->nodes[i].transition[j].etiquette = strdup(etiquette);
+//                         for (int k = 0; k < aut->countNode; k++) {
+//                             if (strcmp(aut->nodes[k].Id, to) == 0) {
+//                                 aut->nodes[i].transition[j].nextNode = &aut->nodes[k];
+//                             }
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//     }
 
-    while (fgets(line, sizeof(line), file)) {
-        // Gestion des nœuds
-        if (strstr(line, "node")) {
-            char* token = strtok(line, " [];=,\t\n");
-            while (token) {
-                if (strcasecmp(token, "node") == 0) {
-                    token = strtok(NULL, " [];=,\t\n");
-                    if (token && strcasecmp(token, "shape") == 0) {
-                        token = strtok(NULL, " [];=,\t\n");
-                        if (token) {
-                            if (strcasecmp(token, "doublecircle") == 0) {
-                                // Final states
-                                token = strtok(NULL, " [],;\t\n");
-                                while (token) {
-                                    node* n = findNode(aut, token);
-                                    if (n) n->isFinal = true;
-                                    token = strtok(NULL, " [],;\t\n");
-                                }
-                            } else if (strcasecmp(token, "point") == 0) {
-                                // Start node (shape=point)
-                                token = strtok(NULL, " [],;\t\n");
-                                if (token) {
-                                    // Créer le nœud de départ
-                                    aut->nodes = realloc(aut->nodes, (aut->countNode + 1) * sizeof(node));
-                                    aut->nodes[aut->countNode].Id = strdup(token);
-                                    aut->nodes[aut->countNode].isFinal = false;
-                                    aut->nodes[aut->countNode].transition = NULL;
-                                    aut->nodes[aut->countNode].transitionCount = 0;
-                                    startNode = &aut->nodes[aut->countNode];
-                                    aut->countNode++;
-                                }
-                            }
-                        }
-                    }
-                }
-                token = strtok(NULL, " [];=,\t\n");
-            }
-        }
-
-        // Gestion des transitions (edges)
-        if (strstr(line, "->")) {
-            char* src = strtok(line, " ->\t\n");
-            char* arrow = strtok(NULL, " ->\t\n");
-            char* dest = strtok(NULL, " [],;\t\n");
-            char* label = NULL;
-
-            // Extraire le label
-            char* labelPos = strstr(line, "label=");
-            if (labelPos) {
-                label = strchr(labelPos, '"');
-                if (label) {
-                    label++;
-                    char* endLabel = strchr(label, '"');
-                    if (endLabel) *endLabel = '\0';
-                }
-            }
-
-            node* srcNode = findNode(aut, src);
-            node* destNode = findNode(aut, dest);
-            if (srcNode && destNode) {
-                Relation(srcNode, destNode, label ? label : "ε");
-            }
-
-            // Si la source est le nœud de départ (shape=point)
-            if (srcNode == startNode) {
-                aut->initialNode = realloc(aut->initialNode, sizeof(node*) * (aut->countNode));
-                aut->initialNode[aut->countNode - 1] = destNode;
-            }
-        }
-    }
-
-    fclose(file);
-    return aut;
-}
+//     fclose(file);
+//     return aut;
+// }
 
 //  Fonction pour afficher un automate
 void PrintAutomate(automate* aut) {
