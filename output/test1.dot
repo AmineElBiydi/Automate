@@ -3,10 +3,8 @@ digraph Automate {
     node[shape=point, width=0];start;
     node[shape=circle]A,B,C,E,F;   
     node[shape=doublecircle]E,F;
-    start->A;
-    A->B,C [label="a,c"];
+    start->A,B;
+    A->B,C [label="a"];
     B->C [label="c"];
-    C->A [label="b"];
-    C->E [label="c"];
-    C->F [label="b"];
+ 
 }
