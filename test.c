@@ -23,6 +23,9 @@ typedef struct automate {
     node* nodes;
     node** initialNode;
     int countNode;
+    node **FinalNodes;
+    int countFinalNodes;
+    int countInNodes;
     char Nom[100];
 } automate;
 
@@ -156,65 +159,65 @@ void WriteAutomateToFile(automate* aut, char* fileName) {
     printf("Automate sauvegarde dans %s\n", fileName);
 }
 
-// automate* ReadFile(char* fileName) {
-//     FILE* file = fopen(fileName, "r");
-//     if (!file) {
-//         printf("Erreur : Impossible d'ouvrir le fichier !\n");
-//         return NULL;
-//     }
+automate* ReadFile(char* fileName) {
+    FILE* file = fopen(fileName, "r");
+    if (!file) {
+        printf("Erreur : Impossible d'ouvrir le fichier !\n");
+        return NULL;
+    }
 
-//     automate* aut = CreateAutomate();
-//     if (!aut) return NULL;
+    automate* aut = CreateAutomate();
+    if (!aut) return NULL;
 
-//     char buffer[256];
-//     while (fgets(buffer, sizeof(buffer), file)) {
-//         if (strstr(buffer, "Nom de l'automate")) {
-//             sscanf(buffer, "Nom de l'automate : %s", aut->Nom);
-//         } else if (strstr(buffer, "Nombre d'etats")) {
-//             sscanf(buffer, "Nombre d'etats : %d", &aut->countNode);
-//             aut->nodes = CreateNodes(aut->countNode);
-//         } else if (strstr(buffer, "etats initiaux")) {
-//             char id[50];
-//             aut->initialNode = malloc(aut->countNode * sizeof(node*));
-//             int k = 0;
-//             while (sscanf(buffer, "%s", id) == 1) {
-//                 for (int i = 0; i < aut->countNode; i++) {
-//                     if (strcmp(aut->nodes[i].Id, id) == 0) {
-//                         aut->initialNode[k++] = &aut->nodes[i];
-//                     }
-//                 }
-//             }
-//         } else if (strstr(buffer, "etats finaux")) {
-//             char id[50];
-//             while (sscanf(buffer, "%s", id) == 1) {
-//                 for (int i = 0; i < aut->countNode; i++) {
-//                     if (strcmp(aut->nodes[i].Id, id) == 0) {
-//                         aut->nodes[i].isFinal = true;
-//                     }
-//                 }
-//             }
-//         } else if (strstr(buffer, "Transitions")) {
-//             char from[50], to[50], etiquette[50];
-//             while (fscanf(file, "%s --(%s)--> %s", from, etiquette, to) == 3) {
-//                 for (int i = 0; i < aut->countNode; i++) {
-//                     if (strcmp(aut->nodes[i].Id, from) == 0) {
-//                         int j = aut->nodes[i].transitionCount++;
-//                         aut->nodes[i].transition = realloc(aut->nodes[i].transition, aut->nodes[i].transitionCount * sizeof(relation));
-//                         aut->nodes[i].transition[j].etiquette = strdup(etiquette);
-//                         for (int k = 0; k < aut->countNode; k++) {
-//                             if (strcmp(aut->nodes[k].Id, to) == 0) {
-//                                 aut->nodes[i].transition[j].nextNode = &aut->nodes[k];
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-//         }
-//     }
+    char buffer[256];
+    while (fgets(buffer, sizeof(buffer), file)) {
+        if (strstr(buffer, "Nom de l'automate")) {
+            sscanf(buffer, "Nom de l'automate : %s", aut->Nom);
+        } else if (strstr(buffer, "Nombre d'etats")) {
+            sscanf(buffer, "Nombre d'etats : %d", &aut->countNode);
+            aut->nodes = CreateNodes(aut->countNode);
+        } else if (strstr(buffer, "etats initiaux")) {
+            char id[50];
+            aut->initialNode = malloc(aut->countNode * sizeof(node*));
+            int k = 0;
+            while (sscanf(buffer, "%s", id) == 1) {
+                for (int i = 0; i < aut->countNode; i++) {
+                    if (strcmp(aut->nodes[i].Id, id) == 0) {
+                        aut->initialNode[k++] = &aut->nodes[i];
+                    }
+                }
+            }
+        } else if (strstr(buffer, "etats finaux")) {
+            char id[50];
+            while (sscanf(buffer, "%s", id) == 1) {
+                for (int i = 0; i < aut->countNode; i++) {
+                    if (strcmp(aut->nodes[i].Id, id) == 0) {
+                        aut->nodes[i].isFinal = true;
+                    }
+                }
+            }
+        } else if (strstr(buffer, "Transitions")) {
+            char from[50], to[50], etiquette[50];
+            while (fscanf(file, "%s --(%s)--> %s", from, etiquette, to) == 3) {
+                for (int i = 0; i < aut->countNode; i++) {
+                    if (strcmp(aut->nodes[i].Id, from) == 0) {
+                        int j = aut->nodes[i].transitionCount++;
+                        aut->nodes[i].transition = realloc(aut->nodes[i].transition, aut->nodes[i].transitionCount * sizeof(relation));
+                        aut->nodes[i].transition[j].etiquette = strdup(etiquette);
+                        for (int k = 0; k < aut->countNode; k++) {
+                            if (strcmp(aut->nodes[k].Id, to) == 0) {
+                                aut->nodes[i].transition[j].nextNode = &aut->nodes[k];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-//     fclose(file);
-//     return aut;
-// }
+    fclose(file);
+    return aut;
+}
 
 //  Fonction pour afficher un automate
 void PrintAutomate(automate* aut) {
@@ -290,6 +293,57 @@ node* CreateNodes(int NbrNodes) {
     }
     return nodes;
 }
+void genererficher( automate aut){
+    char nom[20];
+    printf("Veuillez entrer le nom de votre fichier\n");
+    scanf("%s", nom);
+    FILE *file=fopen("%s.dot","w+");
+    fprintf(file ,"digraph Automate {\n");
+    fprintf(file,"node[shape=point, width=0];start;\n");
+    fprintf(file,"node[shape=circle];");
+    for(int i=0 ; i< aut.countNode;i++){
+        fprintf(file,"%s,",aut.nodes[i]->Id);
+    }
+    fprintf(file,";");
+    fprintf(file,"node[shape=doublecircle]");
+    for(int j=0 ; j< aut.countFinalNodes ; j++){
+        fprintf(file,"%s",aut.FinalNodes[j]->Id);
+    }
+    fprintf(file,";");
+
+    fprintf(file,"start -> ");
+    for(int k=0 ;k<aut.countInNodes;k++){
+        fprintf(file,"%s",aut.initialNode[k]->Id);
+    }
+    fprintf(file,";");
+
+    for(int l=0; l<aut.countNode;l++){
+        for(int m=0; m<aut.nodes[l].transitionCount;m++){
+            fprintf(file,"%s->%s [label=\"%s\"]",aut.nodes[l].Id,aut.nodes[l].transition[m].nextNode->Id,aut.nodes[l].transition[m]->etiquette);
+            fprintf(file,";");
+        }
+
+    }
+    fprintf(file,"}");
+}
+
+void EtatPlusTransition(automate *aut ){
+    int nbrTransition; 
+    int tmp=aut->nodes[0].transitionCount;
+    char* NomNoeud;
+    for(int i=0;i<aut->countNode;i++){
+    if(aut->nodes[i].transitionCount>tmp){
+        tmp=aut->nodes[i].transitionCount;
+        NomNoeud=aut->nodes[i].Id;
+    }else{
+        i++;
+    }
+    
+    }
+    printf("%s",NomNoeud);
+
+}
+
 
 //  Fonction main avec menu interactif
 int main() {
@@ -311,11 +365,11 @@ int main() {
             case 1:
                 aut = EnterAutomate();
                 break;
-            // case 2:
-            //     printf("Nom du fichier .dot : ");
-            //     scanf("%s", filename);
-            //     aut = ReadFile(filename);
-            //     break;
+            case 2:
+                printf("Nom du fichier .dot : ");
+                scanf("%s", filename);
+                aut = ReadFile(filename);
+                break;
             case 3:
                 PrintAutomate(aut);
                 break;
