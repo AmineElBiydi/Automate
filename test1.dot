@@ -2,18 +2,12 @@ digraph Automate {
     rankdir=LR;
     
     node[shape=point, width=0];start;
+    node[shape=circle];A,B,C,E,F;
     node[shape=doublecircle]E;
-    start -> A,C;
+    start -> A,C,B;
     A->B [label="a"];
     B->C [label="c"];
     C->A [label="b"];
     C->E [label="b"];
     C->F [label="b"];
 }
-
-node[shape=circle];A,B,C,E,F;  
-node
-shape
-circle
-A
-b
