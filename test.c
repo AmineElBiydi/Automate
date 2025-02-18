@@ -94,7 +94,7 @@ automate* EnterAutomate() {
                 aut->nodes[i].transition[j].etiquette = malloc(10);
 
                 printf("%s vers ? (entrer Id d'un noeud existant) : ", aut->nodes[i].Id);
-                scanf("%s", aut->nodes[i].transition[j].nextNode);
+                scanf("%s", aut->nodes[i].transition[j].nextNode->Id);
 
                 printf("Avec l'etiquette : ");
                 scanf("%s", aut->nodes[i].transition[j].etiquette);
@@ -257,7 +257,7 @@ void PrintAutomate(automate* aut) {
             printf("%s --(%s)--> %s\n",
                    aut->nodes[i].Id,
                    aut->nodes[i].transition[j].etiquette,
-                   aut->nodes[i].transition[j].nextNode);
+                   aut->nodes[i].transition[j].nextNode->Id);
         }
     }
 }
@@ -300,7 +300,7 @@ int main() {
     do {
         printf("\nMenu :\n");
         printf("1- Entrer un automate\n");
-        printf("2- Lire un automate depuis un fichier .dot\n");
+        printf("2- Lire un automate depuis un fichier .dot (not working now)\n");
         printf("3- Afficher l'automate\n");
         printf("4- Sauvegarder l'automate dans un fichier .txt\n");
         printf("5- Quitter\n");
@@ -311,11 +311,11 @@ int main() {
             case 1:
                 aut = EnterAutomate();
                 break;
-            case 2:
-                printf("Nom du fichier .dot : ");
-                scanf("%s", filename);
-                aut = ReadFile(filename);
-                break;
+            // case 2:
+            //     printf("Nom du fichier .dot : ");
+            //     scanf("%s", filename);
+            //     aut = ReadFile(filename);
+            //     break;
             case 3:
                 PrintAutomate(aut);
                 break;
