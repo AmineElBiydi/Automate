@@ -1,249 +1,431 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h> 
+#include <stdbool.h>
 #include <string.h>
 
 typedef struct relation relation;
-typedef struct node{
-    char Id[50];
-    bool isFinal;   
+typedef struct node {
+    char *Id;
+    bool isFinal;
     relation *transition;
     int transitionCount;
-}node;
+} node;
 
-typedef struct relation{
+typedef struct relation {
     node* nextNode;
     char* etiquette;
     int nbrEtiquette;
-}relation;
+} relation;
 
-typedef struct automate{
-    node** initialNode;
+typedef struct automate {
+    node* initialNode;
     node* nodes;
-    int  countNode;
-    int  countInitialNode;
-}automate;
+    int countNode;
+    int countInitialNode;
+    char Nom[100];
+} automate;
 
+void PrintAutomate(automate* aut);
 automate* ReadFile(char* fileName);
 
-int main(){
- 
+int main() {
     automate* automates = ReadFile("test1.dot");
-    printf("countNode : %s\n",automates->initialNode[0]->Id);    
-    return 0 ;
+    PrintAutomate(automates);
+    return 0;
 }
 
-node* CreateNodes(int NbrNodes){
-    node* nodes = malloc(sizeof(node)*NbrNodes);
-    if(nodes==NULL){
+node* CreateNodes(int NbrNodes) {
+    node* nodes = malloc(sizeof(node) * NbrNodes);
+    if (nodes == NULL) {
         printf("Erreur: node is Null!\n");
-        return NULL ;
+        return NULL;
     }
-    for(int i=0 ; i< NbrNodes ; i++){
-        (nodes)[i].isFinal=false;
-        (nodes)[i].transition=NULL;
-        (nodes)[i].transitionCount=0;
+    for (int i = 0; i < NbrNodes; i++) {
+        nodes[i].Id = NULL;
+        nodes[i].isFinal = false;
+        nodes[i].transition = NULL;
+        nodes[i].transitionCount = 0;
     }
     return nodes;
 }
 
-node* ResizeNodes(node* nodee,int newNbrNodes){
-    node* tmp=realloc(nodee ,sizeof(node)*newNbrNodes);
-    if(tmp == NULL){
+node* ResizeNodes(node* nodee, int newNbrNodes) {
+    int nbr=0;  
+    node* tmp = realloc(nodee, sizeof(node) * newNbrNodes);
+    if (tmp == NULL) {
         printf("Erreur : reallocated node is null!\n");
         return NULL;
     }
     return tmp;
 }
 
-automate* CreateAutomate(){
-    automate* automates = malloc(sizeof(automate)) ;
-    if (automates == NULL){
-        printf ("Erreur : l'Automate is NULL !\n");
+automate* CreateAutomate() {
+    automate* automates = malloc(sizeof(automate));
+    if (automates == NULL) {
+        printf("Erreur : l'Automate is NULL !\n");
         return NULL;
     }
-    automates->countNode=0;
-    automates->countInitialNode=0;
-    automates->initialNode =NULL;
+    automates->countNode = 0;
+    automates->countInitialNode = 0;
+    automates->initialNode = NULL;
     automates->nodes = NULL;
     return automates;
 }
 
-relation* Relation(node* InitNode,node* FinalNode , char* etiquette){
-    int count = 0 ;
-    if(InitNode->transition == NULL ){
+relation* Relation(node* InitNode, node* FinalNode, char* etiquette) {
+    int count = 0;
+    if (InitNode->transition == NULL) {
         InitNode->transition = malloc(sizeof(relation));
-        if((InitNode)->transition == NULL){
+        if (InitNode->transition == NULL) {
             printf("Erreur : transition is NULL");
             return NULL;
         }
         InitNode->transitionCount++;
-        InitNode->transition->nextNode = FinalNode ;
-        InitNode->transition->etiquette = etiquette;
-        for(char* word=etiquette ;  *word != '\0' ; word++){
+        InitNode->transition->nextNode = FinalNode;
+        InitNode->transition->etiquette = malloc(strlen(etiquette) + 1);
+        strcpy(InitNode->transition->etiquette, etiquette);
+        for (char* word = etiquette; *word != '\0'; word++) {
             count++;
         }
         InitNode->transition->nbrEtiquette = count;
-        return InitNode->transition ;
+        return InitNode->transition;
     }
-    relation* transition1 = realloc(InitNode->transition , sizeof(relation)*(InitNode->transitionCount+1));
-    if(transition1==NULL){
+    relation* transition1 = realloc(InitNode->transition, sizeof(relation) * (InitNode->transitionCount + 1));
+    if (transition1 == NULL) {
         printf("Erreur : reallocation is NULL !\n");
         return InitNode->transition;
     }
     InitNode->transition = transition1;
     InitNode->transitionCount++;
-    InitNode->transition[InitNode->transitionCount-1].nextNode = FinalNode ;
-    InitNode->transition[InitNode->transitionCount-1].etiquette = etiquette ;
-    for(char* word=etiquette ;  *word != '\0' ; word++){
+    InitNode->transition[InitNode->transitionCount - 1].nextNode = FinalNode;
+    InitNode->transition[InitNode->transitionCount - 1].etiquette = malloc(strlen(etiquette) + 1);
+    strcpy(InitNode->transition[InitNode->transitionCount - 1].etiquette, etiquette);
+    for (char* word = etiquette; *word != '\0'; word++) {
         count++;
     }
-    InitNode->transition[InitNode->transitionCount-1].nbrEtiquette = count;
+    InitNode->transition[InitNode->transitionCount - 1].nbrEtiquette = count;
     return InitNode->transition;
 }
+
 /*
     ======= lecture de fichier ======
 */
-automate* ReadFile(char* fileName){
-    FILE* file=fopen(fileName,"r+");
-    char line[50];
-    char *token ;
-    int nbrNodeAllocated=2;
-    automate*automate =CreateAutomate();
-    if(file==NULL){
-        printf("Erreur : erreur l'ors de l'ouvrage de fichier !\n");
-        return NULL; 
-    }
-    if(automate==NULL){
+automate* ReadFile(char* fileName) {
+    FILE *file = fopen(fileName, "r");
+    if (!file) {
+        printf("Erreur : impossible d'ouvrir le fichier %s\n", fileName);
         return NULL;
     }
-    automate->nodes=CreateNodes(nbrNodeAllocated);
-    if(automate->nodes==NULL){
+    int nodeCapacity = 5;
+    char line[100];
+    char *initNames[50];
+    int initCount = 0;
+    automate* aut = CreateAutomate();
+    if (!aut) {
+        fclose(file);
         return NULL;
     }
-    while(fgets(line,sizeof(line),file)!=NULL){
-        token = strtok(line, " [].,!}?= ->{\n");
-        while(token!=NULL){
-            if(strcasecmp(token,"digraph")==0||strcasecmp(token,"rankdir")==0){
-                break;
+    aut->nodes = CreateNodes(nodeCapacity);
+    while (fgets(line, sizeof(line), file) != NULL) {
+        line[strcspn(line, "\n")] = '\0';
+        if(strlen(line) == 0){  
+            continue;
+        }
+        char *part = strtok(line, " {};");
+        if (!part){
+            continue;
+        }
+        if (strncmp(part, "digraph",7) == 0) {
+            part = strtok(NULL, " ");
+            if (part) {
+                strcpy(aut->Nom, part);
             }
-            else if((strcasecmp(token,"node"))==0){
-                token = strtok(NULL," [].,!?=->\n");
-                if(strcasecmp(token,"shape")==0){
-                    token = strtok(NULL," ;[].,!?= ->\n");
-                    if(strcasecmp(token,"point")==0){
-                        break;
-                    }
-                    else if(strcasecmp(token,"circle")==0){
-                        token = strtok(NULL," ;[].,!?= ->\n");
-                        while(token!=NULL){
-                            if(automate->countNode < nbrNodeAllocated){
-                                strcpy((automate->nodes[automate->countNode].Id),token);
-                                automate->countNode++;
+            continue;
+        }
+        else if (strcmp(part, "rankdir=LR") == 0){
+            continue;
+        }
+        if (strncmp(part, "node", 4) == 0) {
+            part = strtok(part, "[=,");
+            part = strtok(NULL, "[=,");
+            part = strtok(NULL, "[=,]");
+            if (!part){
+                continue;
+            }
+            if (strcmp(part, "point") == 0) {
+                part = strtok(NULL, "[=,]");
+                part = strtok(NULL, "[=,]");
+                part = strtok(NULL, "[=,]");
+                while (part!=NULL)
+                {
+                    if(aut->countInitialNode==0){
+                        initCount=5;
+                        aut->initialNode = CreateNodes(initCount);
+                        aut->initialNode[aut->countInitialNode].Id = strdup(part);
+                        aut->countInitialNode++;  
+                        
+                    }else{
+                        if(aut->countInitialNode >=initCount){
+                            initCount+=initCount;
+                            aut->initialNode = ResizeNodes(aut->initialNode, initCount);
+                            for(int i = aut->countInitialNode; i < initCount; i++){
+                                aut->initialNode[i].Id = NULL;
+                                aut->initialNode[i].isFinal = false;
+                                aut->initialNode[i].transition = NULL;
+                                aut->initialNode[i].transitionCount = 0;
                             }
-                            else{
-                                nbrNodeAllocated*=2;
-                                automate->nodes=ResizeNodes(automate->nodes,nbrNodeAllocated);
-                                strcpy((automate->nodes[automate->countNode].Id),token);
-                                automate->countNode++;    
-                            }  
-                            token = strtok(NULL," ;[].,!?= ->\n");
+                            aut->initialNode[aut->countInitialNode].Id = strdup(part);
+                            aut->countInitialNode++;
+                        }else{
+                            aut->initialNode[aut->countInitialNode].Id = strdup(part);
+                            aut->countInitialNode++;
                         }
-                        break;
-                    }else if(strcasecmp(token,"doublecircle")==0){
-                        token = strtok(NULL," ;[].,!?= ->\n");
-                        while(token!=NULL){
-                            for(int i=0 ; i<automate->countNode ; i++){
-                                if(strcasecmp(token,automate->nodes[i].Id)==0){
-                                    automate->nodes[i].isFinal=true;
-                                }
-                            }
-                            token = strtok(NULL," ;[].,!?= ->\n");                        
-                        }
-                        break;  
                     }
+                    part = strtok(NULL, "[=,]");
+                }                                
+            }
+            else if (strcmp(part, "circle") == 0) {
+                part = strtok(NULL, "[=,]");
+               while (part!=NULL)
+               {
+                    if(aut->countNode<nodeCapacity){
+                        aut->nodes[aut->countNode].Id = strdup(part);
+                        aut->countNode++;
+                    }else{
+                        nodeCapacity+=nodeCapacity;
+                        aut->nodes=ResizeNodes(aut->nodes, nodeCapacity);
+                        for(int i = aut->countNode; i < nodeCapacity; i++){
+                            aut->nodes[i].Id = NULL;
+                            aut->nodes[i].isFinal = false;
+                            aut->nodes[i].transition = NULL;
+                            aut->nodes[i].transitionCount = 0;
+                        }
+                        aut->nodes[aut->countNode].Id = strdup(part);
+                        aut->countNode++;
+                    }
+                    part = strtok(NULL, "[=,]");
+                    printf("etat part : %s\n", aut->nodes[aut->countNode-1].Id);
+               }
+            }
+            else if (strcmp(part, "doublecircle")==0){
+                part = strtok(NULL, "[=,]");
+                int found = 0;
+                while (part!=NULL)
+                {
+                    found=0;
+                    for(int i = 0; i < aut->countNode; i++){
+                        if(strcasecmp(aut->nodes[i].Id, part) == 0){
+                            aut->nodes[i].isFinal = true;
+                            found = 1;
+                            break;
+                        }
+                    }
+                    if(found==0){
+                        if(aut->countNode>=nodeCapacity){
+                            nodeCapacity+=nodeCapacity;
+                            aut->nodes=ResizeNodes(aut->nodes, nodeCapacity);
+                            for(int i = aut->countNode; i < nodeCapacity; i++){
+                                aut->nodes[i].Id = NULL;
+                                aut->nodes[i].isFinal = false;
+                                aut->nodes[i].transition = NULL;
+                                aut->nodes[i].transitionCount = 0;
+                            }
+                            aut->nodes[aut->countNode].Id = strdup(part);
+                            aut->nodes[aut->countNode].isFinal = true;
+                            aut->countNode++;
+                        }
+                        else{
+                            aut->nodes[aut->countNode].Id = strdup(part);
+                            aut->nodes[aut->countNode].isFinal = true;
+                            aut->countNode++;
+                        }
+                    }
+                    for(int i = 0; i < aut->countNode; i++){
+                        if(aut->nodes[i].isFinal==true){
+                            printf("etat final part : %s\n", aut->nodes[i].Id);
+                        }
+                    }
+                    part = strtok(NULL, "[=,]");
                 }
-            }else if(strcasecmp(token,"start")==0){
-                nbrNodeAllocated=2;
-                automate->initialNode=malloc(sizeof(node*)*nbrNodeAllocated);
-                if (automate->initialNode == NULL) {
-                    printf("Erreur : allocation de mémoire pour initialNode échouée !\n");
-                    return NULL;
-                }
-                (token = strtok(NULL," ;[].,!}?= ->\n"));
-                while(token!=NULL){
-                    for(int i=0 ; i<automate->countNode ; i++){
-                        if(strcasecmp(token,automate->nodes[i].Id)==0){
-                            if(automate->countInitialNode < nbrNodeAllocated){
-                                automate->initialNode[automate->countInitialNode]=&automate->nodes[i];
-                                automate->countInitialNode++;
 
-                            }else{
-                                node ** tmp;
-                                nbrNodeAllocated+=2;
-                                tmp=realloc(automate->initialNode,sizeof(node*)*nbrNodeAllocated);
-                                if(tmp==NULL){
-                                    printf ("Erreur : l'ors de la reallocation de node initiales!!\n");
-                                    return NULL;
+            }
+        }else{
+            int found=0;
+            part=strtok(part, "->, ");
+            while (part!=NULL)
+            {
+                if (found==0){
+                    for(int i = 0; i < aut->countInitialNode; i++){
+                        if(strcmp(aut->initialNode[i].Id,part) == 0){
+                            part=strtok(NULL, "->,[ ");     
+                            for(int j = 0; j < aut->countNode; j++){
+                                if(strcmp(aut->nodes[j].Id,part) == 0){
+                                    found=1;
+                                    if(aut->initialNode[i].transitionCount==0){
+                                        aut->initialNode[i].transition = malloc(sizeof(relation));
+                                        if(aut->initialNode[i].transition == NULL){
+                                            printf("Erreur : transition is NULL\n");
+                                            return NULL;
+                                        }
+                                        aut->initialNode[i].transition[aut->initialNode[i].transitionCount].nextNode = &aut->nodes[j];
+                                        aut->initialNode[i].transitionCount++;
+                                        printf("part : %s\n", aut->initialNode[i].transition[aut->initialNode[i].transitionCount-1].nextNode->Id);
+                                    }else{
+                                        aut->initialNode[i].transition = realloc(aut->initialNode[i].transition, sizeof(relation)*(aut->initialNode[i].transitionCount+1));
+                                        if(aut->initialNode[i].transition == NULL){
+                                            printf("Erreur : reallocation is NULL\n");
+                                            return NULL;
+                                        }
+                                        aut->initialNode[i].transition[aut->initialNode[i].transitionCount].nextNode = &aut->nodes[j];
+                                        aut->initialNode[i].transitionCount++;
+                                    }
+                                }    
+                            }
+                            if(found==0){
+                                for(int j = 0; j < aut->countInitialNode; j++){
+                                if(strcmp(aut->initialNode[j].Id,part) == 0){
+                                    found=1;
+                                    if(aut->initialNode[i].transitionCount==0){
+                                        aut->initialNode[i].transition = malloc(sizeof(relation));
+                                        if(aut->initialNode[i].transition == NULL){
+                                            printf("Erreur : transition is NULL\n");
+                                            return NULL;
+                                        }
+                                        aut->initialNode[i].transition[aut->initialNode[i].transitionCount].nextNode = &aut->initialNode[j];
+                                        aut->initialNode[i].transitionCount++;
+                                    }else{
+                                        aut->initialNode[i].transition = realloc(aut->initialNode[i].transition, sizeof(relation)*(aut->initialNode[i].transitionCount+1));
+                                        if(aut->initialNode[i].transition == NULL){
+                                            printf("Erreur : reallocation is NULL\n");
+                                            return NULL;
+                                        }
+                                        aut->initialNode[i].transition[aut->initialNode[i].transitionCount].nextNode = &aut->initialNode[j];
+                                        aut->initialNode[i].transitionCount++;
+                                    }
                                 }
-                                automate->initialNode=tmp;
-                                automate->initialNode[automate->countInitialNode]=automate->nodes+i;
-                                automate->countInitialNode++;
+                            }
                             }
                         }
                     }
-                    token = strtok(NULL,"[].,!{}}?=; ->\n");
                 }
-                break;
-            }else{
-                printf ("ccccccccc\n");
-                for(int i=0 ; i<automate->countNode ; i++){
-                    if(strcasecmp(token,automate->nodes[i].Id)==0){
-                        char* Ids[50];
-                        char* etiquettes[50] ;
-                        int nbrID=0;
-                        int nbrEtiquette=0;
-                        token = strtok(NULL," [].,!}?= ->\n");
-                        while(!(strcasecmp(token,"label")==0)){  
-                            Ids[nbrID]=token;
-                            nbrID++;
-                            token = strtok(NULL," [].,!}?= ->\n");
-                        }
-                        token = strtok(NULL," [].,!}?= ->\n");
-                        while(token!=NULL){
-                            etiquettes[nbrEtiquette]=token;
-                            nbrEtiquette++;
-                            token = strtok(NULL," \"[].,!}?= ->\n");
-                        }
-                        automate->nodes[i].transition=malloc(sizeof(relation)*nbrID);
-                        for(int j=0 ; j<nbrID ; j++){
-                            for(int k=0 ; k<automate->countNode ; k++){
-                                if(strcasecmp(Ids[j],automate->nodes[k].Id)){
-                                    automate->nodes[i].transition[j].nextNode=&automate->nodes[k];
-                                    for(int l=0 ; l<nbrEtiquette ; l++){
-                                        automate->nodes[i].transition[j].etiquette=malloc(sizeof(char)*nbrEtiquette);
-                                        for(int m=0 ; m<nbrEtiquette ; m++){
-                                            automate->nodes[i].transition[j].etiquette[m]=*etiquettes[m];
+                if(found==0){
+                    for(int i = 0; i < aut->countNode; i++){
+                        if(strcmp(aut->initialNode[i].Id,part) == 0){
+                            part=strtok(NULL, "->,[ ");
+                                for(int j = 0; j < aut->countNode; j++){
+                                    if(strcmp(aut->nodes[j].Id,part) == 0){
+                                        found=1;
+                                        if(aut->initialNode[i].transitionCount==0){
+                                            aut->initialNode[i].transition = malloc(sizeof(relation));
+                                            if(aut->initialNode[i].transition == NULL){
+                                                printf("Erreur : transition is NULL\n");
+                                                return NULL;
+                                            }
+                                            aut->initialNode[i].transition[aut->initialNode[i].transitionCount].nextNode = &aut->nodes[j];
+                                            aut->initialNode[i].transitionCount++;
+                                        }else{
+                                            aut->initialNode[i].transition = realloc(aut->initialNode[i].transition, sizeof(relation)*(aut->initialNode[i].transitionCount+1));
+                                            if(aut->initialNode[i].transition == NULL){
+                                                printf("Erreur : reallocation is NULL\n");
+                                                return NULL;
+                                            }
+                                            aut->initialNode[i].transition[aut->initialNode[i].transitionCount].nextNode = &aut->nodes[j];
+                                            aut->initialNode[i].transitionCount++;
                                         }
-                                        automate->nodes[i].transition[j].nbrEtiquette=nbrEtiquette;
+        
+                                }for(int j = 0; j < aut->countInitialNode; j++){
+                                    if(strcmp(aut->initialNode[j].Id,part) == 0){
+                                        found=1;
+                                        if(aut->initialNode[i].transitionCount==0){
+                                            aut->initialNode[i].transition = malloc(sizeof(relation));
+                                            if(aut->initialNode[i].transition == NULL){
+                                                printf("Erreur : transition is NULL\n");
+                                                return NULL;
+                                            }
+                                            aut->initialNode[i].transition[aut->initialNode[i].transitionCount].nextNode = &aut->initialNode[j];
+                                            aut->initialNode[i].transitionCount++;
+                                        }else{
+                                            aut->initialNode[i].transition = realloc(aut->initialNode[i].transition, sizeof(relation)*(aut->initialNode[i].transitionCount+1));
+                                            if(aut->initialNode[i].transition == NULL){
+                                                printf("Erreur : reallocation is NULL\n");
+                                                return NULL;
+                                            }
+                                            aut->initialNode[i].transition[aut->initialNode[i].transitionCount].nextNode = &aut->initialNode[j];
+                                            printf("etat part : %s\n", aut->initialNode[i].transition[aut->initialNode[i].transitionCount-1].nextNode->Id);
+                                            aut->initialNode[i].transitionCount++;
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
+                    }  
                 }
-
+                part=strtok(NULL, "->,[ ");
             }
-            token = strtok(line, " [].,!}?= ->{");
         }
-    
     }
-    printf("line : %s\n",line);
-
-    return automate;
     fclose(file);
+    return aut;
 }
 
-/*
-======= menu =====================
-*/  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void PrintAutomate(automate* aut) {
+    if (!aut) {
+        printf("L'automate est vide !\n");
+        return;
+    }
+
+    printf("Nom de l'automate : %s\n", aut->Nom);
+    
+    // Affichage des etats
+    printf("etats : ");
+    for (int i = 0; i < aut->countNode; i++) {
+        printf("%s ", aut->nodes[i].Id);
+    }
+    printf("\n");
+
+    // Affichage des etats initiaux
+    printf("etats initiaux : ");
+    for (int i = 0; i < aut->countInitialNode; i++) {
+        if (aut->initialNode[i].Id) {
+            printf("%s ", aut->initialNode[i].Id);
+        }
+    }
+    printf("\n");
+
+    // Affichage des etats finaux
+    printf("etats finaux : ");
+    for (int i = 0; i < aut->countNode; i++) {
+        if (aut->nodes[i].isFinal) {
+            printf("%s ", aut->nodes[i].Id);
+        }
+    }
+    printf("\n");
+
+    // Affichage des transitions
+    printf("Transitions :\n");
+    for (int i = 0; i < aut->countNode; i++) {
+        for (int j = 0; j < aut->nodes[i].transitionCount; j++) {
+            printf("%s --(%s)--> %s\n",
+                   aut->nodes[i].Id,
+                   aut->nodes[i].transition[j].etiquette,
+                   aut->nodes[i].transition[j].nextNode->Id);
+        }
+    }
+}
