@@ -1,0 +1,15 @@
+digraph Automate_1{
+    rankdir=LR;
+    node [shape = doublecircle]; 3;
+    node [shape = circle]; 2, 1, 4;
+    node [shape = circle, style = bold]; 0;
+    0 -> 1 [label="a"];
+    0 -> 2 [label="b"];
+    1 -> 0 [label="b"];
+    2 -> 3 [label="c"];
+    3 -> 2 [label="a"];
+    1 -> 3 [label="a"];
+    1 -> 4 [label="c"];
+    4 -> 2 [label="a"];
+    4 -> 3 [label="b"];
+}
