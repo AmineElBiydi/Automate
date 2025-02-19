@@ -1,220 +1,176 @@
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h> 
 #include <string.h>
+#include <stdbool.h>
 
 typedef struct relation relation;
 
-typedef struct relation{
-    node* nextNode;
-    char* etiquette;
-    int nbrEtiquette;
-}relation;
-
-typedef struct node{
+typedef struct node {
     char *Id;
-    bool isFinal;   
+    bool isFinal;
     relation *transition;
     int transitionCount;
-}node;
+} node;
 
-typedef struct automate{
-    node* nodes;
-    node** initialNode;
-    int  countNode;
-    char Nom[100] ;
-}automate;
+typedef struct relation {
+    node* nextNode;
+    char* etiquette;
+} relation;
 
+typedef struct automate {
+    node** initialNodes;  // Array of pointers for initial states
+    int countInitialNode;
+    node* nodes;          // Array of nodes
+    int countNode;
+    char Nom[100];
+} automate;
 
-node* CreateNodes(int NbrNodes){
-    node* nodes = malloc(sizeof(node)*NbrNodes);
-    if(nodes==NULL){
-        printf("Erreur: node is Null!\n");
-        return NULL ;
-    }
-    for(int i=0 ; i< NbrNodes ; i++){
-        (nodes)[i].isFinal=false;
-        (nodes)[i].transition=NULL;
-        (nodes)[i].transitionCount=0;
-    }
-    return nodes;
-}
-
-node* ResizeNodes(node* nodee,int newNbrNodes){
-    node* tmp=realloc(nodee ,sizeof(node)*newNbrNodes);
-    if(tmp == NULL){
-        printf("Erreur : reallocated node is null!\n");
-        retun NULL;
-    }
-}
-
-automate* CreateAutomate(){
-    automate* automates = malloc(sizeof(automate)) ;
-    if (automates == NULL){
-        printf ("Erreur : l'Automate is NULL !\n");
-        return NULL;
-    }
-    automates->countNode=0;
-    automates->initialNode =NULL;
-    automates->nodes = NULL;
-    return automates;
-}
-
-relation* Relation(node* InitNode,node* FinalNode , char* etiquette){
-    int count = 0 ;
-    if(InitNode->transition == NULL ){
-        InitNode->transition = malloc(sizeof(relation));
-        if((InitNode)->transition == NULL){
-            printf("Erreur : transition is NULL");
-            return NULL;
-        }
-        InitNode->transitionCount++;
-        InitNode->transition->nextNode = FinalNode ;
-        InitNode->transition->etiquette = etiquette;
-        for(char* word=etiquette ; word!=NULL ; word++){
-            count++;
-        }
-        InitNode->transition->nbrEtiquette = count;
-        return InitNode->transition ;
-    }
-    relation* transition1 = realloc(InitNode->transition , sizeof(relation)*(InitNode->transitionCount+1));
-    if(transition1==NULL){
-        printf("Erreur : reallocation is NULL !\n");
-        return InitNode->transition;
-    }
-    InitNode->transition = transition1;
-    InitNode->transitionCount++;
-    InitNode->transition[InitNode->transitionCount-1].nextNode = FinalNode ;
-    InitNode->transition[InitNode->transitionCount-1].etiquette = etiquette ;
-    for(char* word=etiquette ; word!=NULL ; word++){
-        count++;
-    }
-    InitNode->transition[InitNode->transitionCount-1].nbrEtiquette = count;
-    return InitNode->transition;
-}
-node* findNode(automate* a, const char* id) {
+// Function to find or create a node
+node* findOrCreateNode(automate* a, const char* id) {
     for (int i = 0; i < a->countNode; i++) {
         if (strcmp(a->nodes[i].Id, id) == 0) {
             return &a->nodes[i];
         }
     }
-    return NULL;
+
+    // Create a new node
+    a->countNode++;
+    a->nodes = realloc(a->nodes, a->countNode * sizeof(node));
+    if (!a->nodes) {
+        perror("Memory allocation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    node* newNode = &a->nodes[a->countNode - 1];
+    newNode->Id = strdup(id);  // Duplicate the ID safely
+    newNode->isFinal = false;
+    newNode->transition = NULL;
+    newNode->transitionCount = 0;
+
+    return newNode;
 }
-/*
-    ======= li kay9ra mn l fichier ======
-*/
-automate* ReadFile(char* fileName) {
-    FILE* file = fopen(fileName, "r");
-    char line[256];
+
+// Function to add a transition
+void addTransition(node* fromNode, node* toNode, const char* label) {
+    fromNode->transitionCount++;
+    fromNode->transition = realloc(fromNode->transition, fromNode->transitionCount * sizeof(relation));
+    if (!fromNode->transition) {
+        perror("Memory allocation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    relation* newRelation = &fromNode->transition[fromNode->transitionCount - 1];
+    newRelation->nextNode = toNode;
+    newRelation->etiquette = strdup(label);
+}
+
+// Function to parse .dot file
+void parseDotFile(const char* filename, automate* a) {
+    FILE* file = fopen(filename, "r");
     if (!file) {
-        printf("Erreur : Impossible d'ouvrir le fichier !\n");
-        return NULL;
+        perror("Error opening file");
+        exit(EXIT_FAILURE);
     }
 
-    automate* aut = CreateAutomate();
-    if (!aut) return NULL;
+    a->initialNodes = NULL; // Initialize initial states array
 
-    node* startNode = NULL; // Nœud initial (shape=point)
-
+    char line[256];
     while (fgets(line, sizeof(line), file)) {
-        // Gestion des nœuds
-        if (strstr(line, "node")) {
-            char* token = strtok(line, " [];=,\t\n");
+        // Extract Automate name
+        if (strstr(line, "digraph")) {
+            sscanf(line, "digraph %s {", a->Nom);
+        } 
+        // Extract final states
+        else if (strstr(line, "node[shape=doublecircle]")) {
+            char *start = strstr(line, "doublecircle]") + 13;  // Move past "doublecircle]"
+            char *token = strtok(start, " ,;\n");
             while (token) {
-                if (strcasecmp(token, "node") == 0) {
-                    token = strtok(NULL, " [];=,\t\n");
-                    if (token && strcasecmp(token, "shape") == 0) {
-                        token = strtok(NULL, " [];=,\t\n");
-                        if (token) {
-                            if (strcasecmp(token, "doublecircle") == 0) {
-                                // Final states
-                                token = strtok(NULL, " [],;\t\n");
-                                while (token) {
-                                    node* n = findNode(aut, token);
-                                    if (n) n->isFinal = true;
-                                    token = strtok(NULL, " [],;\t\n");
-                                }
-                            } else if (strcasecmp(token, "point") == 0) {
-                                // Start node (shape=point)
-                                token = strtok(NULL, " [],;\t\n");
-                                if (token) {
-                                    // Créer le nœud de départ
-                                    aut->nodes = realloc(aut->nodes, (aut->countNode + 1) * sizeof(node));
-                                    aut->nodes[aut->countNode].Id = strdup(token);
-                                    aut->nodes[aut->countNode].isFinal = false;
-                                    aut->nodes[aut->countNode].transition = NULL;
-                                    aut->nodes[aut->countNode].transitionCount = 0;
-                                    startNode = &aut->nodes[aut->countNode];
-                                    aut->countNode++;
-                                }
-                            }
-                        }
-                    }
+                node* n = findOrCreateNode(a, token);
+                n->isFinal = true;
+                token = strtok(NULL, " ,;\n");
+            }
+        } 
+        // Extract initial states
+        else if (strstr(line, "start->")) {
+            char* token = strtok(line, " ->,;\n");
+            token = strtok(NULL, " ->,;\n");  // Skip "start->"
+            while (token) {
+                node* n = findOrCreateNode(a, token);
+                a->initialNodes = realloc(a->initialNodes, (a->countInitialNode + 1) * sizeof(node*));
+                if (!a->initialNodes) {
+                    perror("Memory allocation failed");
+                    exit(EXIT_FAILURE);
                 }
-                token = strtok(NULL, " [];=,\t\n");
+                a->initialNodes[a->countInitialNode++] = n;
+                token = strtok(NULL, " ->,;\n");
             }
-        }
-
-        // Gestion des transitions (edges)
-        if (strstr(line, "->")) {
-            char* src = strtok(line, " ->\t\n");
-            char* arrow = strtok(NULL, " ->\t\n");
-            char* dest = strtok(NULL, " [],;\t\n");
-            char* label = NULL;
-
-            // Extraire le label
-            char* labelPos = strstr(line, "label=");
-            if (labelPos) {
-                label = strchr(labelPos, '"');
-                if (label) {
-                    label++;
-                    char* endLabel = strchr(label, '"');
-                    if (endLabel) *endLabel = '\0';
-                }
-            }
-
-            node* srcNode = findNode(aut, src);
-            node* destNode = findNode(aut, dest);
-            if (srcNode && destNode) {
-                Relation(srcNode, destNode, label ? label : "ε");
-            }
-
-            // Si la source est le nœud de départ (shape=point)
-            if (srcNode == startNode) {
-                aut->initialNode = realloc(aut->initialNode, sizeof(node*) * (aut->countNode));
-                aut->initialNode[aut->countNode - 1] = destNode;
+        } 
+        // Extract transitions
+        else if (strstr(line, "->") && strstr(line, "[label=")) {
+            char from[100], to[100], label[100];
+            if (sscanf(line, " %99[^->] -> %99[^ [] [label=\"%99[^\"]\"];", from, to, label) == 3) {
+                node* fromNode = findOrCreateNode(a, from);
+                node* toNode = findOrCreateNode(a, to);
+                addTransition(fromNode, toNode, label);
             }
         }
     }
-
     fclose(file);
-    return aut;
-}
-void PrintAutomate(automate* aut) {
-    printf("Nom de l'automate : %s\n", aut->Nom);
-    printf("États initiaux : ");
-    for (int i = 0; i < aut->countNode; i++) {
-        if (aut->initialNode && aut->initialNode[i]) {
-            printf("%s ", aut->initialNode[i]->Id);
-        }
-    }
-    printf("\nÉtats finaux : ");
-    for (int i = 0; i < aut->countNode; i++) {
-        if (aut->nodes[i].isFinal) {
-            printf("%s ", aut->nodes[i].Id);
-        }
-    }
-    printf("\nTransitions :\n");
-    for (int i = 0; i < aut->countNode; i++) {
-        node* n = &aut->nodes[i];
-        for (int j = 0; j < n->transitionCount; j++) {
-            relation* r = &n->transition[j];
-            printf("%s --(%s)--> %s\n", n->Id, r->etiquette, r->nextNode->Id);
-        }
-    }
 }
 
-int main(){
+// Function to print the automate
+void printAutomate(automate* a) {
+    printf("Nom de l'automate : %s\n", a->Nom);
     
+    printf("États : ");
+    for (int i = 0; i < a->countNode; i++) {
+        printf("%s ", a->nodes[i].Id);
+    }
+    printf("\n");
+
+    printf("États initiaux : ");
+    for (int i = 0; i < a->countInitialNode; i++) {
+        printf("%s ", a->initialNodes[i]->Id);
+    }
+    printf("\n");
+
+    printf("États finaux : ");
+    for (int i = 0; i < a->countNode; i++) {
+        if (a->nodes[i].isFinal) {
+            printf("%s ", a->nodes[i].Id);
+        }
+    }
+    printf("\n");
+
+    printf("Transitions :\n");
+    for (int i = 0; i < a->countNode; i++) {
+        node* n = &a->nodes[i];
+        for (int j = 0; j < n->transitionCount; j++) {
+            printf("%s --(%s)--> %s\n", n->Id, n->transition[j].etiquette, n->transition[j].nextNode->Id);
+        }
+    }
 }
 
+// Function to free allocated memory
+void freeAutomate(automate* a) {
+    for (int i = 0; i < a->countNode; i++) {
+        free(a->nodes[i].Id);
+        for (int j = 0; j < a->nodes[i].transitionCount; j++) {
+            free(a->nodes[i].transition[j].etiquette);
+        }
+        free(a->nodes[i].transition);
+    }
+    free(a->nodes);
+    free(a->initialNodes);
+}
+
+// Main function
+int main() {
+    automate a = {0};
+    parseDotFile("test1.dot", &a);
+    printAutomate(&a);
+    freeAutomate(&a); // Free allocated memory
+
+    return 0;
+}
