@@ -1,0 +1,14 @@
+digraph Automate {
+    rankdir=LR;
+    node[shape=point, width=0]start;
+    node[shape=point, width=0]final;
+    node[shape=circle]A,B,C,D,E,F;   
+    E,C,F,D,A->final;
+    start->A,B,D;
+    A->B [label="o"];
+    A->C [label="c"];
+    C->F [label="l"];
+    E->C [label="b"];
+    A->D [label="c"];
+    F->E [label="m"];
+}
