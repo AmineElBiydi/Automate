@@ -1,14 +1,22 @@
 {
   "configurations": [
     {
+<<<<<<< HEAD
       "name": "windows-gcc-x64",
+=======
+      "name": "windows-gcc-x86",
+>>>>>>> aymane
       "includePath": [
         "${workspaceFolder}/**"
       ],
       "compilerPath": "C:/MinGW/bin/gcc.exe",
       "cStandard": "${default}",
       "cppStandard": "${default}",
+<<<<<<< HEAD
       "intelliSenseMode": "windows-gcc-x64",
+=======
+      "intelliSenseMode": "windows-gcc-x86",
+>>>>>>> aymane
       "compilerArgs": [
         ""
       ]

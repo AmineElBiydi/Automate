@@ -8,8 +8,13 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": true,
+<<<<<<< HEAD
       "cwd": "c:/Users/amine/Desktop/New folder",
       "program": "c:/Users/amine/Desktop/New folder/build/Debug/outDebug",
+=======
+      "cwd": "c:/GI1/S6/theorie de language/prjt/Automate",
+      "program": "c:/GI1/S6/theorie de language/prjt/Automate/build/Debug/outDebug",
+>>>>>>> aymane
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [
