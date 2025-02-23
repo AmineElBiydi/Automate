@@ -1,1 +1,0 @@
-         printf("text : %s\n", text);
