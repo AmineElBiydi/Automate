@@ -29,6 +29,11 @@ typedef struct automate {
     char Nom[100];
 } automate ;
 
+automate* CreateAutomate();
+void PrintAutomate(automate* aut);
+automate* EnterAutomate();
+void freeAutomate(automate* a);
+
 //==============verification de l existance de la node and de l etiquette========  
 node* isNodeExiste(automate* aut, char* nodeID){
     for (int i =0 ; i < aut->countNode ; i++){
@@ -275,6 +280,15 @@ int setNodeInitial(automate* aut ,char* idNode){
     aut->countInitialNode++;
     return 1 ; 
 }
+void addFinalNode(automate* aut, node* n) {
+    aut->finalNode = realloc(aut->finalNode, (aut->countfinalNode + 1) * sizeof(node*));
+    if (!aut->finalNode) {
+        perror("Memory allocation failed");
+        exit(EXIT_FAILURE);
+    }
+    aut->finalNode[aut->countfinalNode++] = n;
+}
+
 char* RemoveSpace(char* str) {
     char *src = str, *dst = str;
     while (*src!='\0') {
@@ -287,6 +301,7 @@ char* RemoveSpace(char* str) {
     return str;
 }
 
+//================ saving the automaton from file or user inpute==============
 automate* ReadFile(char* fileName) {
     FILE *file ;
     file = fopen(fileName , "r");
@@ -410,6 +425,306 @@ automate* ReadFile(char* fileName) {
     fclose(file);
     return aut;
 }
+automate* EnterAutomate() {
+    automate* aut = CreateAutomate();
+
+    if (!aut) return NULL;
+    int tmpcount ;
+
+    printf("Nom de l'automate : ");
+    scanf("%s", aut->Nom);
+    printf("Entrer le nombre d'alphabet : ");
+    scanf("%d", &aut->nbrAlphabet);
+    aut->Alphabet = malloc(aut->nbrAlphabet * sizeof(char));
+    if (!aut->Alphabet) {
+        printf("Erreur d'allocation memoire !\n");
+        freeAutomate(aut);
+        return NULL;
+    }
+    for (int i = 0; i < aut->nbrAlphabet; i++) {
+        printf("Entrer l'alphabet %d : ", i + 1);
+        scanf(" %c", &aut->Alphabet[i]);
+    }
+    printf("Nombre d'etats : ");
+    scanf("%d", &tmpcount);
+    ResizeNodes(aut,tmpcount);
+    aut->countNode=tmpcount;
+    if (!aut->nodes) {
+        free(aut);
+        return NULL;
+    }
+
+    int k = 0;
+    aut->initialNode = malloc(aut->countNode * sizeof(node*));
+
+    if (!aut->initialNode) {
+        printf("Erreur d'allocation memoire !\n");
+        free(aut->nodes);
+        free(aut);
+        return NULL;
+    }
+
+    for (int i = 0; i < aut->countNode; i++) {
+        aut->nodes[i].Id = malloc(10);
+        if (!aut->nodes[i].Id) {
+            printf("Erreur d'allocation memoire pour l'ID du noeud !\n");
+            freeAutomate(aut);
+            return NULL;
+        }
+        printf("Nom du noeud %d : ", i + 1);
+        scanf("%s", aut->nodes[i].Id);
+
+        printf("Est-ce-que c'est une etat initial ? (1=Oui, 0=Non) : ");
+        int choice;
+        scanf("%d", &choice);
+        if (choice == 1) {
+            aut->initialNode[k] = &aut->nodes[i];
+            k++;
+        }
+
+        printf("Est-ce un etat final ? (1=Oui, 0=Non) : ");
+        int final;
+        scanf("%d", &final);
+        aut->nodes[i].isFinal = (final == 1);
+        if (aut->nodes[i].isFinal) {
+            addFinalNode(aut, &aut->nodes[i]);
+        }
+    }
+    aut->countInitialNode = k;
+
+    printf("Passant aux transitions :\n");
+    int choice1;
+    for (int i = 0; i < aut->countNode; i++) {
+        printf(" %s a des transitions ? (1=Oui, 0=Non) : ", aut->nodes[i].Id);
+        scanf("%d", &choice1);
+
+        if (choice1 == 1) {
+            printf("Combien %s a de transitions ? \n", aut->nodes[i].Id);
+            scanf("%d", &aut->nodes[i].transitionCount);
+
+            aut->nodes[i].transition = malloc(aut->nodes[i].transitionCount * sizeof(relation));
+            if (!aut->nodes[i].transition) {
+                printf("Erreur d'allocation des transitions !\n");
+                freeAutomate(aut);
+                return NULL;
+            }
+
+            for (int j = 0; j < aut->nodes[i].transitionCount; j++) {
+                char nextNodeId[10];
+                printf("%s vers ? (entrer Id d'un noeud existant) : ", aut->nodes[i].Id);
+                scanf("%s", nextNodeId);
+
+                node* nextNode = NULL;
+                for (int k = 0; k < aut->countNode; k++) {
+                    if (strcmp(aut->nodes[k].Id, nextNodeId) == 0) {
+                        nextNode = &aut->nodes[k];
+                        break;
+                    }
+                }
+
+                if (!nextNode) {
+                    printf("Erreur : Noeud suivant non trouve !\n");
+                    freeAutomate(aut);
+                    return NULL;
+                }     
+
+                aut->nodes[i].transition[j].nextNode = nextNode;
+                char label;
+                bool validLabel;
+                printf("Donner le nombre des etiquettes : ");
+                scanf("%d",&aut->nodes[i].transition[j].nbrEtiquette);
+                fgetchar();
+                aut->nodes[i].transition[j].etiquette = malloc(aut->nodes[i].transition[j].nbrEtiquette);
+                if (!aut->nodes[i].transition[j].etiquette){
+                    printf("Erreur : etiquettes not allocated  !!\n");
+                    freeAutomate(aut);
+                    return NULL;
+                }
+                for(int k =0 ; k < aut->nodes[i].transition[j].nbrEtiquette ;k++){
+                    do {
+                        validLabel = false;
+                        printf("Avec l'etiquette : ");
+                        scanf("%c", &label);
+                        fgetchar();
+                        for (int p = 0; p < aut->nbrAlphabet; p++) {
+                            if (label == aut->Alphabet[p]) {
+                                validLabel = true;
+                                break;
+                            }
+                        }
+                        if (!validLabel) {
+                            printf("Erreur : L'etiquette n'est pas dans l'alphabet !\n");
+                        }
+                    } while (!validLabel);
+                    aut->nodes[i].transition[j].etiquette[k] = label;
+                }
+            }
+        }
+    }
+
+    return aut;
+}
+
+//========== generate a autmatone file .dot ====================== 
+void genererficher(automate *aut) {
+    char nom[20];
+    printf("Veuillez entrer le nom de votre fichier\n");
+    scanf("%s", nom);
+    char filename[25];
+    snprintf(filename, sizeof(filename), "%s.dot", nom); // Fix: Format the filename
+    FILE *file = fopen(filename, "w+");
+    if (!file) {
+        printf("Erreur lors de l'ouverture du fichier.\n");
+        return;
+    }
+    fprintf(file, "digraph Automate {\n");
+    fprintf(file, "node[shape=point, width=0]");
+    for(int i=0;i<aut->countInitialNode;i++){
+        if(i<aut->countInitialNode-1)
+            fprintf(file, "start%d,",i);
+        else{
+        fprintf(file, "start%d;\n",i);
+        }
+    }
+    fprintf(file, "node[shape=point, width=0]");
+    for(int l=0;l<aut->countfinalNode;l++){
+        if(l<aut->countfinalNode-1)
+            fprintf(file, "final%d,",l);
+        else{
+        fprintf(file, "final%d;\n",l);
+        }
+    }
+    
+    fprintf(file, "node[shape=circle]");
+    for (int i = 0; i < aut->countNode; i++) {
+        if (i < aut->countNode - 1) {
+            fprintf(file, "%s,", aut->nodes[i].Id);
+        } else {
+            fprintf(file, "%s;\n", aut->nodes[i].Id);
+        }
+    }
+
+    for (int k = 0; k < aut->countInitialNode; k++) {
+        fprintf(file, "start%d->%s;\n",k, aut->initialNode[k]->Id);
+    }
+    for (int i = 0; i < aut->countfinalNode; i++) {
+        fprintf(file, "%s->final%d;\n", aut->finalNode[i]->Id,i); 
+    }
+    for (int l = 0; l < aut->countNode; l++) {
+        for (int m = 0; m < aut->nodes[l].transitionCount; m++) {
+            fprintf(file, "%s->%s [label=\"", aut->nodes[l].Id,aut->nodes[l].transition[m].nextNode->Id);
+            for(int i=0;i<aut->nodes[l].transition[m].nbrEtiquette-1;i++){
+                fprintf(file, " %c ,",aut->nodes[l].transition[m].etiquette[i]);
+            }
+            fprintf(file, " %c \"];\n",aut->nodes[l].transition[m].etiquette[aut->nodes[l].transition[m].nbrEtiquette-1]);
+        }
+    }
+    fprintf(file, "}\n");
+    fclose(file);
+    printf("Fichier %s cree avec succes.\n", filename);
+}
+
+void EtatPlusTransition(automate *aut) {
+    if (aut->countNode == 0) {
+        printf("L'automate ne contient aucun nœud.\n");
+        return;
+    }
+
+    int maxTransitions = 0;
+    for (int i = 0; i < aut->countNode; i++) {
+        if (aut->nodes[i].transitionCount > maxTransitions) {
+            maxTransitions = aut->nodes[i].transitionCount;
+        }
+    }
+
+    char** maxTransitionNodes = malloc(aut->countNode * sizeof(char*));
+    int countMaxTransitionNodes = 0;
+    for (int i = 0; i < aut->countNode; i++) {
+        if (aut->nodes[i].transitionCount == maxTransitions) {
+            maxTransitionNodes[countMaxTransitionNodes] = aut->nodes[i].Id;
+            countMaxTransitionNodes++;
+        }
+    }
+
+    printf("Les nœuds avec le plus grand nombre de transitions (%d transitions) sont :\n", maxTransitions);
+    for (int i = 0; i < countMaxTransitionNodes; i++) {
+        printf("%s ", maxTransitionNodes[i]);
+    }
+    printf("\n");
+
+    free(maxTransitionNodes);
+}
+
+void TransitionAlphabet(automate*aut, char* etiquette){
+    int i;
+    for(i=0;i<aut->countNode;i++){
+        for(int j=0;j<aut->nodes[i].transitionCount;j++){
+            for(int l=0 ; l<aut->nodes[i].transition[j].nbrEtiquette;l++){
+                if(aut->nodes[i].transition[j].etiquette[l]==etiquette[0]){
+                    printf("%s-->%s \n",aut->nodes[i].Id,aut->nodes[i].transition[j].nextNode->Id);
+                }
+            }
+        }
+    }
+}
+ 
+bool motAccepteRecursive(node* noeud, const char* mot, int indice) {
+    if (indice == strlen(mot)) {
+        return noeud->isFinal;
+    }
+
+    for (int i = 0; i < noeud->transitionCount; i++) {
+        for(int k=0;k <noeud->transition[i].nbrEtiquette;k++){
+            if (noeud->transition[i].etiquette[k] == mot[indice]) {
+                if (motAccepteRecursive(noeud->transition[i].nextNode, mot, indice + 1)) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+bool motAccepte(automate* aut, const char* mot) {
+    for (int i = 0; i < aut->countInitialNode; i++) {
+        if (motAccepteRecursive(aut->initialNode[i], mot, 0)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+char** listMotAccepte(automate* aut,char *filename) {
+    FILE *file=fopen(filename,"r");
+    char str[200];
+    if (file == NULL) {
+        printf("Aucun fichier trouvé. Le programme démarrera avec une liste vide.\n");
+        return NULL;
+    }
+    char** motsAcceptes = malloc(100 * sizeof(char*));
+    if (!motsAcceptes) {
+        perror("erreur d'allocation");
+        exit(EXIT_FAILURE);
+    }
+    int nbMotsAcceptes = 0;
+    while ((fgets(str, sizeof(str), file)) != NULL) {
+        char* token = strtok(str, " \n");
+        while (token != NULL) {
+            if (motAccepte(aut, token)) {
+                motsAcceptes[nbMotsAcceptes] = strdup(token);
+                if (!motsAcceptes[nbMotsAcceptes]) {
+                    perror("erreur d'allocation");
+                    exit(EXIT_FAILURE);
+                }
+                nbMotsAcceptes++;
+            } 
+            token = strtok(NULL, " \n");
+        }
+    }
+    fclose(file);
+    return motsAcceptes;
+}
 
 void PrintAutomate(automate* aut) {
     if (!aut) {
@@ -445,13 +760,133 @@ void PrintAutomate(automate* aut) {
     }
 }
 
-
+void freeAutomate(automate* a) {
+    for (int i = 0; i < a->countNode; i++) {
+        free(a->nodes[i].Id);
+        for (int j = 0; j < a->nodes[i].transitionCount; j++) {
+            free(a->nodes[i].transition[j].etiquette);
+        }
+        free(a->nodes[i].transition);
+    }
+    free(a->nodes);
+    free(a->initialNode);
+    free(a->finalNode);
+}
 
 
 int main() {
-    automate* automates = ReadFile("test.dot");
-    if (automates != NULL) {
-        PrintAutomate(automates);
+    automate* aut = NULL;
+    int choix;
+    char filename[100];
+    char etiquette[10];
+    char mot[100];
+
+    do {
+        printf("\nMenu :\n");
+        printf("1- Entrer un automate\n");
+        printf("2- Lire un automate depuis un fichier .dot\n");
+        printf("3- Afficher l'automate\n");
+        printf("5- Generer un fichier .dot\n");
+        printf("6- Afficher l'etat avec le plus de transitions\n");
+        printf("7- Afficher les transitions pour une etiquette donnee\n");
+        printf("8- isAcceptable ?\n");
+        printf("9- les mots accepte ?\n");
+        printf("10- Quitter\n");
+        
+        printf("Choix : ");
+        scanf("%d", &choix);
+
+        switch (choix) {
+            case 1:
+                if (aut) {
+                    freeAutomate(aut);
+                }
+                aut = EnterAutomate();
+                break;
+            case 2:
+                printf("Nom du fichier .dot : ");
+                scanf("%s", filename);
+                if (aut) {
+                    freeAutomate(aut);
+                }
+                aut = ReadFile(filename);
+                break;
+            case 3:
+                if (aut) {
+                    PrintAutomate(aut);
+                } else {
+                    printf("Aucun automate charge !\n");
+                }
+                break;
+            case 5:
+                if (aut) {
+                    genererficher(aut);
+                } else {
+                    printf("Aucun automate charge !\n");
+                }
+                break;
+            case 6:
+                if (aut) {
+                    EtatPlusTransition(aut);
+                } else {
+                    printf("Aucun automate charge !\n");
+                }
+                break;
+            case 7:
+                if (aut) {
+                    printf("Entrer l'etiquette : ");
+                    scanf("%s", etiquette);
+                    TransitionAlphabet(aut, etiquette);
+                } else {
+                    printf("Aucun automate charge !\n");
+                }
+                break;
+                case 8:
+                printf("Veuillez entrer le mot :\n");
+                scanf("%s", mot);
+            
+                if (motAccepte(aut, mot)) {
+                    printf("Le mot est accepte\n");
+                } else {
+                    printf("Le mot n'est pas accepte\n");
+                }
+                    break;
+                case 9:
+                        if(aut){
+                            printf("Veuillez entrer le no; du fichier ");
+                            scanf("%s",filename);
+                            char** motsAcceptes = listMotAccepte(aut,filename);
+                            if (!motsAcceptes) {
+                                printf("Aucun mot accepte trouve.\n");
+                            } else {
+                                printf("%s - ", motsAcceptes[0]);
+                                printf("Les mots acceptes sont :\n");
+
+                                for (int i = 0; i < strlen(motsAcceptes)-1; i++) {
+                                    if (motsAcceptes[i]!=NULL) {
+                                        printf("%s - ", motsAcceptes[i]);
+                                        free(motsAcceptes[i]);
+                                    }
+                                }
+                                printf("%s \n", motsAcceptes[strlen(motsAcceptes)-1]);
+                                free(motsAcceptes[strlen(motsAcceptes)-1]);
+                                free(motsAcceptes);
+                            }
+                        }else{
+                            printf("aucune automate charge");
+                        }
+                    break;
+                    case 10:
+                printf("Fin du programme.\n");
+                break;
+            default:
+                printf("Option invalide !\n");
+        }
+    } while (choix != 10);
+
+    if (aut) {
+        freeAutomate(aut);
     }
-    return 0;
+
+    return 0 ;
 }
