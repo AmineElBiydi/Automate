@@ -103,6 +103,7 @@ automate* CreateAutomate() {
     automates->countNode = 0;
     automates->countInitialNode = 0;
     automates->countfinalNode=0;
+    automates->nbrAlphabet=0;
     return automates;
 }
 
@@ -136,7 +137,7 @@ void ResizeNodes(automate* aut , int newNodesNbr){
 void ResizePointingNodes(node*** nd, int newNbr) {
     node** tmp = realloc(*nd, sizeof(node*) * newNbr);
     if (tmp == NULL) {
-        perror("Erreur: La reallocation de la memoire pour les nodes a échoué!\n");
+        perror("Erreur: La reallocation de la memoire pour les nodes a �chou�!\n");
         exit(EXIT_FAILURE);
     }
     // Initialize new pointers from oldNbr to newNbr to NULL
@@ -155,6 +156,33 @@ relation* isNodehasRelation(node* nodeInit , node* nodeFinal ){
     }
     return NULL;
 }
+void AddAlphabet(automate* aut , char alphabet ){
+    for(int i=0 ; i<aut->nbrAlphabet ; i++){
+        if (aut->Alphabet[i] == alphabet){
+            return ;
+        }
+    }
+    if(aut->nbrAlphabet == 0){
+        aut->Alphabet=malloc( NbrAllocated);
+        if (aut->Alphabet ==NULL){
+            perror("Erreur\n");
+            exit(EXIT_FAILURE);
+        }
+        aut->Alphabet[aut->nbrAlphabet]=alphabet;
+        aut->nbrAlphabet++;
+    }else if(aut->nbrAlphabet == strlen(aut->Alphabet)){
+        aut->Alphabet=realloc(aut->Alphabet , aut->nbrAlphabet+NbrAllocated);
+        if (aut->Alphabet ==NULL){
+            perror("Erreur\n");
+            exit(EXIT_FAILURE);
+        }
+        aut->Alphabet[aut->nbrAlphabet]=alphabet;
+        aut->nbrAlphabet++;
+    }else {
+        aut->Alphabet[aut->nbrAlphabet]=alphabet;
+        aut->nbrAlphabet++;
+    }
+}
 int Relation(automate* aut, char* InitNode, char* FinalNode, char etiquette) {
     node* tmpInitiale = isNodeExiste(aut, InitNode);
     node* tmpFinal = isNodeExiste(aut, FinalNode);
@@ -168,6 +196,7 @@ int Relation(automate* aut, char* InitNode, char* FinalNode, char etiquette) {
             return 1;
         }
     }
+    AddAlphabet(aut,etiquette);
     if (isNodehasRelation(tmpInitiale,tmpFinal)!=NULL){
         relation* tmpRelation = isNodehasRelation(tmpInitiale,tmpFinal);
         if(isEtiquetteFound(*tmpRelation , etiquette)) return 0;
@@ -329,11 +358,9 @@ automate* ReadFile(char* fileName) {
             continue;
         }
         if (strstr(part, "digraph") != NULL) {
-        // hna khas nakhed l fnct li dar ayman hit hia hsen mn hadi 
-            part = strtok(part, " ");
-            part = strtok(NULL, " ");
-            if (part) {
-                strcpy(aut->Nom, part);
+            char* temp = strstr(line, "digraph");
+            if (temp) {
+                sscanf(temp, "digraph %s", aut->Nom);
             }
             continue;
         } else if (strstr(part, "rankdir") != NULL){
@@ -445,7 +472,7 @@ automate* EnterAutomate() {
         printf("Entrer l'alphabet %d : ", i + 1);
         scanf(" %c", &aut->Alphabet[i]);
     }
-    printf("Nombre d'etats : ");
+    printf("\n\nNombre d'etats : ");
     scanf("%d", &tmpcount);
     ResizeNodes(aut,tmpcount);
     aut->countNode=tmpcount;
@@ -471,7 +498,7 @@ automate* EnterAutomate() {
             freeAutomate(aut);
             return NULL;
         }
-        printf("Nom du noeud %d : ", i + 1);
+        printf("\n\nNom du noeud %d : ", i + 1);
         scanf("%s", aut->nodes[i].Id);
 
         printf("Est-ce-que c'est une etat initial ? (1=Oui, 0=Non) : ");
@@ -492,7 +519,7 @@ automate* EnterAutomate() {
     }
     aut->countInitialNode = k;
 
-    printf("Passant aux transitions :\n");
+    printf("\n\n\nPassant aux transitions :\n");
     int choice1;
     for (int i = 0; i < aut->countNode; i++) {
         printf(" %s a des transitions ? (1=Oui, 0=Non) : ", aut->nodes[i].Id);
@@ -578,6 +605,7 @@ void genererficher(automate *aut) {
         return;
     }
     fprintf(file, "digraph Automate {\n");
+    fprintf(file,"rankdir=LR;\n");
     fprintf(file, "node[shape=point, width=0]");
     for(int i=0;i<aut->countInitialNode;i++){
         if(i<aut->countInitialNode-1)
@@ -626,7 +654,7 @@ void genererficher(automate *aut) {
 
 void EtatPlusTransition(automate *aut) {
     if (aut->countNode == 0) {
-        printf("L'automate ne contient aucun nœud.\n");
+        printf("L'automate ne contient aucun n?ud.\n");
         return;
     }
 
@@ -646,7 +674,7 @@ void EtatPlusTransition(automate *aut) {
         }
     }
 
-    printf("Les nœuds avec le plus grand nombre de transitions (%d transitions) sont :\n", maxTransitions);
+    printf("Les n?uds avec le plus grand nombre de transitions (%d transitions) sont :\n", maxTransitions);
     for (int i = 0; i < countMaxTransitionNodes; i++) {
         printf("%s ", maxTransitionNodes[i]);
     }
@@ -699,7 +727,7 @@ char** listMotAccepte(automate* aut,char *filename) {
     FILE *file=fopen(filename,"r");
     char str[200];
     if (file == NULL) {
-        printf("Aucun fichier trouvé. Le programme démarrera avec une liste vide.\n");
+        printf("Aucun fichier trouve?. Le programme de?marrera avec une liste vide.\n");
         return NULL;
     }
     char** motsAcceptes = malloc(100 * sizeof(char*));
@@ -737,6 +765,12 @@ void PrintAutomate(automate* aut) {
         printf("%s ", aut->nodes[i].Id);
     }
     printf("\n");
+    printf ("L'alphabet de l'automate : ");
+    for (int i = 0; i < aut->nbrAlphabet-1; i++) {
+        printf(" %c -", aut->Alphabet[i]);
+    }
+    printf(" %c ", aut->Alphabet[aut->nbrAlphabet-1]);
+    printf("\n");
     printf("etats initiaux : ");
     for (int i = 0; i < aut->countInitialNode; i++) {
         printf("%s ",aut->initialNode[i]->Id);
@@ -773,7 +807,6 @@ void freeAutomate(automate* a) {
     free(a->finalNode);
 }
 
-
 int main() {
     automate* aut = NULL;
     int choix;
@@ -782,16 +815,22 @@ int main() {
     char mot[100];
 
     do {
-        printf("\nMenu :\n");
-        printf("1- Entrer un automate\n");
-        printf("2- Lire un automate depuis un fichier .dot\n");
-        printf("3- Afficher l'automate\n");
-        printf("5- Generer un fichier .dot\n");
-        printf("6- Afficher l'etat avec le plus de transitions\n");
-        printf("7- Afficher les transitions pour une etiquette donnee\n");
-        printf("8- isAcceptable ?\n");
-        printf("9- les mots accepte ?\n");
-        printf("10- Quitter\n");
+        printf("\t������������������������������������������������������������ͻ\n");
+        printf("\t�                    MENU - AUTOMATES                        �\n");
+        printf("\t������������������������������������������������������������͹\n");
+        printf("\t�                                                            �\n");
+        printf("\t�  [1] Entrer un automate :                                  �\n");
+        printf("\t�  [2] Lire un automate depuis un fichier .dot :             �\n");
+        printf("\t�  [3] Afficher l'automate :                                 �\n");
+        printf("\t�  [4] Generer un fichier .dot :                             �\n");
+        printf("\t�  [5] Afficher l'etat avec le plus de transitions :         �\n");
+        printf("\t�  [6] Afficher les transitions pour une etiquette donnee :  �\n");
+        printf("\t�  [7] vrifier si un mot est acceptable :                    �\n");
+        printf("\t�  [8] Les mots d'un fichier .txt sont acceptable :          �\n");
+        printf("\t�  [9] Quitter :                                             �\n");
+        printf("\t�                                                            �\n");
+        printf("\t������������������������������������������������������������ͼ\n");
+        printf("\t\tEntrez votre choix [1-10]: ");
         
         printf("Choix : ");
         scanf("%d", &choix);
@@ -818,21 +857,21 @@ int main() {
                     printf("Aucun automate charge !\n");
                 }
                 break;
-            case 5:
+            case 4:
                 if (aut) {
                     genererficher(aut);
                 } else {
                     printf("Aucun automate charge !\n");
                 }
                 break;
-            case 6:
+            case 5:
                 if (aut) {
                     EtatPlusTransition(aut);
                 } else {
                     printf("Aucun automate charge !\n");
                 }
                 break;
-            case 7:
+            case 6:
                 if (aut) {
                     printf("Entrer l'etiquette : ");
                     scanf("%s", etiquette);
@@ -841,19 +880,19 @@ int main() {
                     printf("Aucun automate charge !\n");
                 }
                 break;
-                case 8:
-                printf("Veuillez entrer le mot :\n");
-                scanf("%s", mot);
-            
-                if (motAccepte(aut, mot)) {
-                    printf("Le mot est accepte\n");
-                } else {
-                    printf("Le mot n'est pas accepte\n");
-                }
+                case 7:
+                    printf("Veuillez entrer le mot : ");
+                    scanf("%s", mot);
+                
+                    if (motAccepte(aut, mot)) {
+                        printf("Le mot est accepte !!\n");
+                    } else {
+                        printf("Le mot n'est pas accepte !!\n");
+                    }
                     break;
-                case 9:
+                case 8:
                         if(aut){
-                            printf("Veuillez entrer le no; du fichier ");
+                            printf("Veuillez entrer le nom du fichier : ");
                             scanf("%s",filename);
                             char** motsAcceptes = listMotAccepte(aut,filename);
                             if (!motsAcceptes) {
@@ -873,11 +912,11 @@ int main() {
                                 free(motsAcceptes);
                             }
                         }else{
-                            printf("aucune automate charge");
+                            printf("aucune automate charge !!\n");
                         }
                     break;
-                    case 10:
-                printf("Fin du programme.\n");
+                    case 9:
+                    printf("Fin du programme.\n");
                 break;
             default:
                 printf("Option invalide !\n");
@@ -890,3 +929,4 @@ int main() {
 
     return 0 ;
 }
+
