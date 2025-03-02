@@ -4,6 +4,8 @@
 #include <string.h>
 #include <ctype.h>
 
+
+int etatCounter = 0;
 int NbrAllocated = 5 ;
 typedef struct relation relation;
 typedef struct node {
@@ -29,10 +31,6 @@ typedef struct automate {
     char Nom[100];
 } automate ;
 
-automate* CreateAutomate();
-void PrintAutomate(automate* aut);
-automate* EnterAutomate();
-void freeAutomate(automate* a);
 
 //==============verification de l existance de la node and de l etiquette========  
 node* isNodeExiste(automate* aut, char* nodeID){
@@ -807,128 +805,603 @@ void freeAutomate(automate* a) {
     free(a->finalNode);
 }
 
-
-
-int main() {
-    automate* aut = NULL;
-    int choix;
-    char filename[100];
-    char etiquette[10];
-    char mot[100];
-
-    do {
-        printf("\t������������������������������������������������������������ͻ\n");
-        printf("\t�                    MENU - AUTOMATES                        �\n");
-        printf("\t������������������������������������������������������������͹\n");
-        printf("\t�                                                            �\n");
-        printf("\t�  [1] Entrer un automate :                                  �\n");
-        printf("\t�  [2] Lire un automate depuis un fichier .dot :             �\n");
-        printf("\t�  [3] Afficher l'automate :                                 �\n");
-        printf("\t�  [4] Generer un fichier .dot :                             �\n");
-        printf("\t�  [5] Afficher l'etat avec le plus de transitions :         �\n");
-        printf("\t�  [6] Afficher les transitions pour une etiquette donnee :  �\n");
-        printf("\t�  [7] vrifier si un mot est acceptable :                    �\n");
-        printf("\t�  [8] Les mots d'un fichier .txt sont acceptable :          �\n");
-        printf("\t�  [10] Quitter :                                            �\n");
-        printf("\t�                                                            �\n");
-        printf("\t������������������������������������������������������������ͼ\n");
-        printf("\t\tEntrez votre choix [1-10]: ");
-        
-        printf("Choix : ");
-        scanf("%d", &choix);
-
-        switch (choix) {
-            case 1:
-                if (aut) {
-                    freeAutomate(aut);
-                }
-                aut = EnterAutomate();
-                break;
-            case 2:
-                printf("Nom du fichier .dot : ");
-                scanf("%s", filename);
-                if (aut) {
-                    freeAutomate(aut);
-                }
-                aut = ReadFile(filename);
-                break;
-            case 3:
-                if (aut) {
-                    PrintAutomate(aut);
-                } else {
-                    printf("Aucun automate charge !\n");
-                }
-                break;
-            case 4:
-                if (aut) {
-                    genererficher(aut);
-                } else {
-                    printf("Aucun automate charge !\n");
-                }
-                break;
-            case 5:
-                if (aut) {
-                    EtatPlusTransition(aut);
-                } else {
-                    printf("Aucun automate charge !\n");
-                }
-                break;
-            case 6:
-                if (aut) {
-                    printf("Entrer l'etiquette : ");
-                    scanf("%s", etiquette);
-                    TransitionAlphabet(aut, etiquette);
-                } else {
-                    printf("Aucun automate charge !\n");
-                }
-                break;
-            case 7:
-                printf("Veuillez entrer le mot : ");
-                scanf("%s", mot);
-            
-                if (motAccepte(aut, mot)) {
-                    printf("Le mot est accepte !!\n");
-                } else {
-                    printf("Le mot n'est pas accepte !!\n");
-                }
-                break;
-            case 8:
-                if (aut) {
-                    printf("Veuillez entrer le nom du fichier : ");
-                    scanf("%s", filename);
-                    char** motsAcceptes = listMotAccepte(aut, filename);
-                    if (!motsAcceptes) {
-                        printf("Aucun mot accepte trouve.\n");
-                    } else {
-                        printf("%s - ", motsAcceptes[0]);
-                        printf("Les mots acceptes sont :\n");
-
-                        for (int i = 0; i < strlen(motsAcceptes) - 1; i++) {
-                            if (motsAcceptes[i] != NULL) {
-                                printf("%s - ", motsAcceptes[i]);
-                                free(motsAcceptes[i]);
-                            }
-                        }
-                        printf("%s \n", motsAcceptes[strlen(motsAcceptes) - 1]);
-                        free(motsAcceptes[strlen(motsAcceptes) - 1]);
-                        free(motsAcceptes);
-                    }
-                } else {
-                    printf("Aucun automate charge !!\n");
-                }
-                break;
-            case 10:
-                printf("Fin du programme.\n");
-                break;
-            default:
-                printf("Option invalide !\n");
-        }
-    } while (choix != 10);
-
-    if (aut) {
-        freeAutomate(aut);
+//--------------copie les etats et les transition d'une etats a une autre ------
+void initUnionAutomate(automate* automa,char*nom,int nbrNodes ,int nbrAlphabet , int nbrInit ){
+    automa->Alphabet=malloc(sizeof(char)*nbrAlphabet);
+    automa->nodes=malloc(sizeof(node)*(nbrNodes+2));
+    automa->initialNode=malloc((sizeof(node*)));
+    automa->finalNode=malloc((sizeof(node*)));
+    if (automa->Alphabet==NULL || automa->nodes==NULL || automa->finalNode==NULL || automa->initialNode==NULL){
+        perror("Erreur lors de la location de la memoire !!\n");
+        exit(EXIT_FAILURE);
     }
-
-    return 0;
+    strcpy(automa->Nom,nom);
+    automa->nodes[0].Id=strdup("Initiale");
+    automa->nodes[1].Id=strdup("Finale");
+    automa->nodes[0].isFinal=false;
+    automa->nodes[1].isFinal=true;
+    automa->nodes[0].transitionCount = automa->nodes[1].transitionCount = 0;
+    automa->nodes[0].transition=malloc(sizeof(relation)*nbrInit);
+    automa->nodes[1].transition=NULL;
+    if (automa->nodes[0].transition==NULL ){
+        perror("Erreur lors de la location de la memoire !!\n");
+        exit(EXIT_FAILURE);
+    }
+    automa->initialNode[0]=&automa->nodes[0];
+    automa->finalNode[0]=&automa->nodes[1];
+    automa->countfinalNode =1;
+    automa->countInitialNode =1;
+    automa->countNode=2;
+    automa->nbrAlphabet=0;
+}
+void initConcatAutomate(automate* automa,char*nom,int nbrNodes ,int nbrAlphabet,int nbrInit ,int nbrFinal,int nbrFinal2){
+    automa->Alphabet=malloc(sizeof(char)*nbrAlphabet);
+    automa->nodes=malloc(sizeof(node)*(nbrNodes+1));
+    automa->initialNode=malloc((sizeof(node*))*nbrInit);
+    automa->finalNode=malloc((sizeof(node*))*nbrFinal);
+    if (automa->Alphabet==NULL || automa->nodes==NULL || automa->finalNode==NULL || automa->initialNode==NULL){
+        perror("Erreur lors de la location de la memoire !!\n");
+        exit(EXIT_FAILURE);
+    }
+    strcpy(automa->Nom,nom);
+    automa->nodes[0].Id=strdup("Intermidiaire");
+    automa->nodes[0].isFinal=false;
+    automa->nodes[0].transitionCount = 0;
+    automa->nodes[0].transition=malloc(sizeof(relation)*nbrFinal2);
+    // automa->nodes[0].transition=malloc(sizeof(relation)*nbrInit);
+    if (automa->nodes[0].transition==NULL ){
+        perror("Erreur lors de la location de la memoire !!\n");
+        exit(EXIT_FAILURE);
+    }
+    // automa->initialNode[0]=&automa->nodes[0];
+    // automa->finalNode[0]=&automa->nodes[1];
+    automa->countfinalNode =0;
+    automa->countInitialNode =0;
+    automa->countNode=1;
+    automa->nbrAlphabet=0;
 }
 
+void copieNodesAndAlphabet(automate* autoToCopieTo ,automate autoToCopieFrom ){
+    int found=0 ;
+    for (int i=0;i<autoToCopieFrom.countNode;i++){
+        autoToCopieTo->nodes[autoToCopieTo->countNode].Id=strdup(autoToCopieFrom.nodes[i].Id);
+        autoToCopieTo->nodes[autoToCopieTo->countNode].isFinal=autoToCopieFrom.nodes[i].isFinal;
+        autoToCopieTo->nodes[autoToCopieTo->countNode].transition=malloc(sizeof(relation)*autoToCopieFrom.nodes[i].transitionCount);
+        if (autoToCopieTo->nodes[autoToCopieTo->countNode].transition==NULL){
+            perror("Erreur lors de la loctaion de la memoir !!\n");
+            exit(EXIT_FAILURE);
+        }
+        autoToCopieTo->countNode++;
+    }
+    for (int i = 0; i <autoToCopieFrom.nbrAlphabet ; i++){
+        for (int j=0;j<autoToCopieTo->nbrAlphabet;j++){
+            if(autoToCopieTo->Alphabet[j]==autoToCopieFrom.Alphabet[i]){
+                found=1;
+                continue;
+            }
+        }
+        if (found==0){
+            autoToCopieTo->Alphabet[autoToCopieTo->nbrAlphabet]=autoToCopieFrom.Alphabet[i];
+            autoToCopieTo->nbrAlphabet++;
+        }else{
+            found=0;
+        }
+    }
+}
+
+void copieTransition(automate* automateToCopieTo ,automate automateToCopieFrom){
+    node* initNode ;
+    node* nextNode;
+    // copie all the nodes and set the finals
+    for (int i =0 ; i < automateToCopieFrom.countNode ;i++){
+        initNode=isNodeExiste(automateToCopieTo , automateToCopieFrom.nodes[i].Id);
+        if (initNode!=NULL){
+            if (initNode->isFinal==false){
+                int nbr;
+                initNode->transitionCount = automateToCopieFrom.nodes[i].transitionCount;
+                nbr=initNode->transitionCount;
+                initNode->transition=malloc(nbr * sizeof(relation));
+                if (initNode->transition==NULL){
+                    perror("Erreur lors de la loctaion de la memoir !!\n");
+                    exit(EXIT_FAILURE);
+                }
+                for(int j=0;j< automateToCopieFrom.nodes[i].transitionCount;j++){
+                    nextNode=isNodeExiste(automateToCopieTo,automateToCopieFrom.nodes[i].transition[j].nextNode->Id);
+                    if(nextNode!=NULL){
+                        initNode->transition[j].nextNode=nextNode;
+                        initNode->transition[j].etiquette=strdup(automateToCopieFrom.nodes[i].transition[j].etiquette);
+                        initNode->transition[j].nbrEtiquette=automateToCopieFrom.nodes[i].transition[j].nbrEtiquette;
+                    }else{
+                        perror("Erreur lors de la sasuvgardement des relation : etat non trouvee !!\n");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+            }else{
+                initNode->transition=malloc(sizeof(relation)*(automateToCopieFrom.nodes[i].transitionCount+1));
+                initNode->transitionCount=automateToCopieFrom.nodes[i].transitionCount+1;
+                if (initNode->transition==NULL){
+                    perror("Erreur lors de la loctaion de la memoir !!\n");
+                    exit(EXIT_FAILURE);
+                }
+                for(int j=0;j< automateToCopieFrom.nodes[i].transitionCount;j++){
+                    nextNode=isNodeExiste(automateToCopieTo,automateToCopieFrom.nodes[i].transition[j].nextNode->Id);
+                    if(nextNode!=NULL){
+                        initNode->transition[j].nextNode=nextNode;
+                        initNode->transition[j].etiquette=strdup(automateToCopieFrom.nodes[i].transition[j].etiquette);
+                        initNode->transition[j].nbrEtiquette=automateToCopieFrom.nodes[i].transition[j].nbrEtiquette;
+                    }else{
+                        perror("Erreur lors de la sasuvgardement des relation : etat non trouvee !!\n");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                initNode->transition[initNode->transitionCount-1].nextNode=&automateToCopieTo->nodes[1];
+                initNode->transition[initNode->transitionCount-1].etiquette=strdup("+");
+                initNode->transition[initNode->transitionCount-1].nbrEtiquette=1;
+            }
+        }else{
+            perror("Erreur lors de la sasuvgardement des relation : etat non trouvee !!\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+    // SET THE INIT ONES 
+    for(int i=0 ; i< automateToCopieFrom.countInitialNode;i++){
+       automateToCopieTo->nodes[0].transition[automateToCopieTo->nodes[0].transitionCount].nextNode=isNodeExiste(automateToCopieTo,automateToCopieFrom.initialNode[i]->Id);
+       automateToCopieTo->nodes[0].transition[automateToCopieTo->nodes[0].transitionCount].etiquette=strdup("+");
+       automateToCopieTo->nodes[0].transition[automateToCopieTo->nodes[0].transitionCount].nbrEtiquette=1;
+       automateToCopieTo->nodes[0].transitionCount++;
+    }
+}
+void copieConcatTransition(automate* automateToCopieTo ,automate automateToCopieFrom){
+    node* initNode ;
+    node* nextNode;
+    // copie all the nodes and set the finals
+    for (int i =0 ; i < automateToCopieFrom.countNode ;i++){
+        initNode=isNodeExiste(automateToCopieTo , automateToCopieFrom.nodes[i].Id);
+        if (initNode!=NULL){
+                initNode->transitionCount = automateToCopieFrom.nodes[i].transitionCount;
+                for(int j=0;j< automateToCopieFrom.nodes[i].transitionCount;j++){
+                    nextNode=isNodeExiste(automateToCopieTo,automateToCopieFrom.nodes[i].transition[j].nextNode->Id);
+                    if(nextNode!=NULL){
+                        initNode->transition[j].nextNode=nextNode;
+                        initNode->transition[j].etiquette=strdup(automateToCopieFrom.nodes[i].transition[j].etiquette);
+                        initNode->transition[j].nbrEtiquette=automateToCopieFrom.nodes[i].transition[j].nbrEtiquette;
+                    }else{
+                        perror("Erreur lors de la sasuvgardement des relation : etat non trouvee !!\n");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+        }else{
+            perror("Erreur lors de la sasuvgardement des relation : etat non trouvee !!\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+  
+}
+
+//---------- Union de deux Automates-------
+automate unionAutomate(automate auto1 , automate auto2){
+    automate unionAuto ;
+    char nom[100];   
+    snprintf(nom, sizeof(nom), "%sUnion%s",auto1.Nom,auto2.Nom);
+    initUnionAutomate(&unionAuto,nom,auto1.countNode+auto2.countNode,auto1.nbrAlphabet+auto2.nbrAlphabet,auto1.countInitialNode+auto2.countInitialNode);
+    copieNodesAndAlphabet(&unionAuto,auto1);
+    copieNodesAndAlphabet(&unionAuto,auto2);
+    copieTransition(&unionAuto,auto1);
+    copieTransition(&unionAuto,auto2);
+    return unionAuto;   
+}
+automate concatAutomate(automate auto1, automate auto2) {
+    automate concatAuto;
+    char nom[100];   
+    snprintf(nom, sizeof(nom), "%sconcatination%s",auto1.Nom,auto2.Nom);
+    initConcatAutomate(&concatAuto, nom, auto1.countNode + auto2.countNode, auto1.nbrAlphabet + auto2.nbrAlphabet, auto1.countInitialNode, auto2.countfinalNode, auto2.countInitialNode);
+    copieNodesAndAlphabet(&concatAuto, auto1);
+    copieConcatTransition(&concatAuto, auto1);
+    copieNodesAndAlphabet(&concatAuto, auto2);
+    copieConcatTransition(&concatAuto, auto2);
+
+    
+    for (int i = 1; i < concatAuto.countNode; i++) {
+        for (int j = 0; j < auto1.countInitialNode; j++) {
+            if (strcmp(concatAuto.nodes[i].Id, auto1.initialNode[j]->Id) == 0) {
+                concatAuto.initialNode[concatAuto.countInitialNode] = &concatAuto.nodes[i];
+                concatAuto.countInitialNode++;
+            }
+        }
+    }
+
+  
+    for (int i = 1; i < concatAuto.countNode; i++) {
+        for (int j = 0; j < auto1.countfinalNode; j++) {
+            if (strcmp(concatAuto.nodes[i].Id, auto1.finalNode[j]->Id) == 0) {
+                concatAuto.nodes[i].transition = realloc(concatAuto.nodes[i].transition, (concatAuto.nodes[i].transitionCount + 1) * sizeof(relation));
+                if (concatAuto.nodes[i].transition == NULL) {
+                    perror("Erreur lors de la reallocation de la memoire pour les transitions");
+                    exit(EXIT_FAILURE);
+                }
+                concatAuto.nodes[i].transition[concatAuto.nodes[i].transitionCount].nextNode = &concatAuto.nodes[0];
+                concatAuto.nodes[i].transition[concatAuto.nodes[i].transitionCount].etiquette = strdup("+");
+                concatAuto.nodes[i].transition[concatAuto.nodes[i].transitionCount].nbrEtiquette = 1;
+                concatAuto.nodes[i].transitionCount++;
+            }
+        }
+    }
+
+    for (int i = 1; i < concatAuto.countNode; i++) {
+        for (int j = 0; j < auto2.countInitialNode; j++) {
+            if (strcmp(concatAuto.nodes[i].Id, auto2.initialNode[j]->Id) == 0) {
+                concatAuto.nodes[0].transition = realloc(concatAuto.nodes[0].transition, (concatAuto.nodes[0].transitionCount + 1) * sizeof(relation));
+                if (concatAuto.nodes[0].transition == NULL) {
+                    perror("Erreur lors de la reallocation de la memoire pour les transitions");
+                    exit(EXIT_FAILURE);
+                }
+                concatAuto.nodes[0].transition[concatAuto.nodes[0].transitionCount].nextNode = &concatAuto.nodes[i];
+                concatAuto.nodes[0].transition[concatAuto.nodes[0].transitionCount].etiquette = strdup("+");
+                concatAuto.nodes[0].transition[concatAuto.nodes[0].transitionCount].nbrEtiquette = 1;
+                concatAuto.nodes[0].transitionCount++;
+            }
+        }
+    }
+
+    
+    for (int i = 1; i < concatAuto.countNode; i++) {
+        for (int j = 0; j < auto2.countfinalNode; j++) {
+            if (strcmp(concatAuto.nodes[i].Id, auto2.finalNode[j]->Id) == 0) {
+                concatAuto.nodes[i].isFinal = true;
+                concatAuto.finalNode = realloc(concatAuto.finalNode, (concatAuto.countfinalNode + 1) * sizeof(node*));
+                if (concatAuto.finalNode == NULL) {
+                    perror("Erreur lors de la reallocation de la memoire pour les noeuds finaux");
+                    exit(EXIT_FAILURE);
+                }
+                concatAuto.finalNode[concatAuto.countfinalNode] = &concatAuto.nodes[i];
+                concatAuto.countfinalNode++;
+            }
+        }
+    }
+
+    return concatAuto;
+}
+
+/// //////////////////// a+///////////////////////
+int stateCounter = 0; // Pour générer des identifiants uniques d'états
+
+
+
+// //==================== main function ========================
+
+// int main() {
+//     automate* aut = NULL;
+//     int choix;
+//     char filename[100];
+//     char etiquette[10];
+//     char mot[100];
+//     automate* aut1,*aut2,*aut3,unionAut, concatAut; 
+//     char nomFile[100],nomFile2[100] ;
+
+//     do {
+        
+//         printf("\t                    MENU - AUTOMATES                        \n");
+//         printf("\t                                                            \n");
+//         printf("\t  [1] Entrer un automate :                                  \n");
+//         printf("\t  [2] Lire un automate depuis un fichier .dot :             \n");
+//         printf("\t  [3] Afficher l'automate :                                 \n");
+//         printf("\t  [4] Generer un fichier .dot :                             \n");
+//         printf("\t  [5] Afficher l'etat avec le plus de transitions :         \n");
+//         printf("\t  [6] Afficher les transitions pour une etiquette donnee :  \n");
+//         printf("\t  [7] vrifier si un mot est acceptable :                    \n");
+//         printf("\t  [8] Les mots d'un fichier .txt sont acceptable :          \n");
+//         printf("\t  [9] Genere l'union des deux automates :                   \n");
+//         printf("\t  [10] Genere la concatAutomate des deux autom               \n");
+//         printf("\t  [19] Construire un automate depuis une expression :       \n");
+//         printf("\t  [11] Analyser une expression reguliere :                  \n");
+//         printf("\t  [12] Quitter :                                            \n");
+//         printf("\t                                                           \n");
+//         printf("\t\tEntrez votre choix [1-13]: ");
+        
+//         printf("Choix : ");
+//         scanf("%d", &choix);
+
+//         switch (choix) {
+//             case 1:
+//                 if (aut) {
+//                     freeAutomate(aut);
+//                 }
+//                 aut = EnterAutomate();
+//                 break;
+//             case 2:
+//                 printf("Nom du fichier .dot : ");
+//                 scanf("%s", filename);
+//                 if (aut) {
+//                     freeAutomate(aut);
+//                 }
+//                 aut = ReadFile(filename);
+//                 break;
+//             case 3:
+//                 if (aut) {
+//                     PrintAutomate(aut);
+//                 } else {
+//                     printf("Aucun automate charge !\n");
+//                 }
+//                 break;
+//             case 4:
+//                 if (aut) {
+//                     genererficher(aut);
+//                 } else {
+//                     printf("Aucun automate charge !\n");
+//                 }
+//                 break;
+//             case 5:
+//                 if (aut) {
+//                     EtatPlusTransition(aut);
+//                 } else {
+//                     printf("Aucun automate charge !\n");
+//                 }
+//                 break;
+//             case 6:
+//                 if (aut) {
+//                     printf("Entrer l'etiquette : ");
+//                     scanf("%s", etiquette);
+//                     TransitionAlphabet(aut, etiquette);
+//                 } else {
+//                     printf("Aucun automate charge !\n");
+//                 }
+//                 break;
+//                 case 7:
+//                     printf("Veuillez entrer le mot : ");
+//                     scanf("%s", mot);
+                
+//                     if (motAccepte(aut, mot)) {
+//                         printf("Le mot est accepte !!\n");
+//                     } else {
+//                         printf("Le mot n'est pas accepte !!\n");
+//                     }
+//                     break;
+//                 case 8:
+//                         if(aut){
+//                             printf("Veuillez entrer le nom du fichier : ");
+//                             scanf("%s",filename);
+//                             char** motsAcceptes = listMotAccepte(aut,filename);
+//                             if (!motsAcceptes) {
+//                                 printf("Aucun mot accepte trouve.\n");
+//                             } else {
+//                                 printf("%s - ", motsAcceptes[0]);
+//                                 printf("Les mots acceptes sont :\n");
+
+//                                 for (size_t i = 0; i < strlen(motsAcceptes) - 1; i++) {
+//                                     if (motsAcceptes[i] != NULL) {
+//                                         printf("%s - ", motsAcceptes[i]);
+//                                         free(motsAcceptes[i]);
+//                                     }
+//                                 }
+//                                 printf("%s \n", motsAcceptes[strlen(motsAcceptes) - 1]);
+//                                 free(motsAcceptes[strlen(motsAcceptes) - 1]);
+//                                 free(motsAcceptes);
+//                             }
+//                         }else{
+//                             printf("aucune automate charge !!\n");
+//                         }
+//                     break;
+//                 case 9 : 
+//                         printf ("Donner le nom de fichier de la premiere automate : ");
+//                         scanf("%s",nomFile);
+//                         aut1=ReadFile(nomFile);
+//                         printf ("Donner le nom de fichier de la dexieme automate : ");
+//                         scanf("%s",nomFile2);
+//                         aut2=ReadFile(nomFile2);
+//                         unionAut=unionAutomate(*aut1,*aut2);
+//                         genererficher(&unionAut);
+//                         printf("le fichier est genere avec succes : avec le nom %s.dot",unionAut.Nom);
+//                 break;
+//                 case 10 : 
+//                         printf ("Donner le nom de fichier de la premiere automate : ");
+//                         scanf("%s",nomFile);
+//                         aut1=ReadFile(nomFile);
+//                         printf ("Donner le nom de fichier de la dexieme automate : ");
+//                         scanf("%s",nomFile2);
+//                         aut2=ReadFile(nomFile2);
+//                         concatAut=concatAutomate(*aut1,*aut2);
+//                         PrintAutomate(&concatAut);
+//                         genererficher(&concatAut);
+//                         printf("le fichier est genere avec succes : avec le nom %s.dot",concatAut.Nom);
+//                         break;
+               
+//             case 11:
+//             printf("Veuillez entrer l'expression reguliere : ");
+//             scanf("%s", mot);
+//             aut = processExpression(mot);
+//             if (aut) {
+//                 PrintAutomate(aut);
+//                 freeAutomate(aut);
+//             } else {
+//                 printf("Erreur lors de la construction de l'automate.\n");
+//             }
+//             break;
+//             case 12:
+//                 printf("Fin du programme.\n");
+//                 break;
+//             default:
+//                 printf("Option invalide !\n");
+//         }
+//     } while (choix != 12);
+
+//     if (aut) {
+//         freeAutomate(aut);
+//     }
+
+//     return 0 ;
+// }
+ 
+
+///////////////////// bach mat3awdch l'etat ///////////////
+node* createNode(bool isFinal) {
+    node* newNode = (node*)malloc(sizeof(node));
+    newNode->Id = (char*)malloc(10 * sizeof(char));
+    sprintf(newNode->Id, "q%d", stateCounter++);
+    newNode->isFinal = isFinal;
+    newNode->transitionCount = 0;
+    newNode->transition = NULL;
+    return newNode;
+}
+
+
+void addTransition(node* from, node* to, char* symbol) {
+    from->transition = (relation*)realloc(from->transition, 
+                     (from->transitionCount + 1) * sizeof(relation));
+    from->transition[from->transitionCount].nextNode = to;
+    from->transition[from->transitionCount].etiquette = strdup(symbol);
+    from->transition[from->transitionCount].nbrEtiquette = 1;
+    from->transitionCount++;
+}
+
+
+automate* createAutomateFromChar(char c) {
+    automate* a = (automate*)malloc(sizeof(automate));
+
+    node* q0 = createNode(false);
+    node* q1 = createNode(true);
+
+    addTransition(q0, q1, (char[]){c, '\0'});
+
+    a->initialNode = (node**)malloc(sizeof(node*));
+    a->initialNode[0] = q0;
+    a->finalNode = (node**)malloc(sizeof(node*));
+    a->finalNode[0] = q1;
+    a->countInitialNode = 1;
+    a->countfinalNode = 1;
+
+    a->nodes = (node*)malloc(2 * sizeof(node));
+    a->nodes[0] = *q0;
+    a->nodes[1] = *q1;
+    a->countNode = 2;
+
+    return a;
+}
+
+
+automate* constructAStar1(char* symbol) {
+    automate* automaton = (automate*)malloc(sizeof(automate));
+
+    node* q0 = createNode(false);
+    node* q1 = createNode(true);
+
+    addTransition(q0, q1, "+"); 
+    addTransition(q1, q1, symbol); 
+    addTransition(q0, q0, symbol); 
+
+    automaton->initialNode = (node**)malloc(sizeof(node*));
+    automaton->initialNode[0] = q0;
+    automaton->finalNode = (node**)malloc(sizeof(node*));
+    automaton->finalNode[0] = q1;
+    automaton->countInitialNode = 1;
+    automaton->countfinalNode = 1;
+
+    automaton->nodes = (node*)malloc(2 * sizeof(node));
+    automaton->nodes[0] = *q0;
+    automaton->nodes[1] = *q1;
+    automaton->countNode = 2;
+
+    return automaton;
+}
+
+// Fonction pour construire un automate pour `a+`
+automate* construireAutomatePlus(char etiquette) {
+    automate* autoPlus = (automate*)malloc(sizeof(automate));
+
+    node* q0 = createNode(false);
+    node* q1 = createNode(true);
+
+    addTransition(q0, q1, (char[]){etiquette, '\0'});
+    addTransition(q1, q1, (char[]){etiquette, '\0'});
+
+    autoPlus->initialNode = (node**)malloc(sizeof(node*));
+    autoPlus->initialNode[0] = q0;
+    autoPlus->finalNode = (node**)malloc(sizeof(node*));
+    autoPlus->finalNode[0] = q1;
+    autoPlus->countInitialNode = 1;
+    autoPlus->countfinalNode = 1;
+
+    autoPlus->nodes = (node*)malloc(2 * sizeof(node));
+    autoPlus->nodes[0] = *q0;
+    autoPlus->nodes[1] = *q1;
+    autoPlus->countNode = 2;
+
+    return autoPlus;
+}
+// Fonction pour fusionner deux automates
+automate* unionAutomates(automate* a1, automate* a2) {
+    automate* result = (automate*)malloc(sizeof(automate));
+
+    node* newStart = createNode(false);
+    addTransition(newStart, a1->initialNode[0], "+");
+    addTransition(newStart, a2->initialNode[0], "+");
+
+    result->initialNode = (node**)malloc(sizeof(node*));
+    result->initialNode[0] = newStart;
+    result->finalNode = (node**)malloc((a1->countfinalNode + a2->countfinalNode) * sizeof(node*));
+
+    result->nodes = (node*)malloc((a1->countNode + a2->countNode + 1) * sizeof(node));
+    memcpy(result->nodes, a1->nodes, a1->countNode * sizeof(node));
+    memcpy(result->nodes + a1->countNode, a2->nodes, a2->countNode * sizeof(node));
+    result->nodes[a1->countNode + a2->countNode] = *newStart;
+
+    result->countNode = a1->countNode + a2->countNode + 1;
+    result->countInitialNode = 1;
+    result->countfinalNode = a1->countfinalNode + a2->countfinalNode;
+
+    return result;
+}
+
+
+automate* processExpression(char* exp) {
+    automate* result = NULL;
+    size_t len = strlen(exp);
+
+    for (size_t i = 0; i < len; i++) {
+        char c = exp[i];
+        automate* newAutomaton = NULL;
+
+        if (isalpha(c)) {
+            if (i + 1 < len && exp[i + 1] == '*') {
+                newAutomaton = constructAStar1(&c);
+                i++;
+            } else if (i + 1 < len && exp[i + 1] == '+') {
+                newAutomaton = construireAutomatePlus(c);
+                i++;
+            } else {
+                newAutomaton = createAutomateFromChar(c);
+            }
+
+            if (result) {
+                result = unionAutomates(result, newAutomaton);
+            } else {
+                result = newAutomaton;
+            }
+        }
+    }
+    return result;
+}
+
+
+
+
+
+
+void afficherAutomate(automate* a) {
+    printf("Automate avec %d éeats\n", a->countNode);
+    for (int i = 0; i < a->countNode; i++) {
+        printf("etat %s%s\n", a->nodes[i].Id, a->nodes[i].isFinal ? " (final)" : "");
+        for (int j = 0; j < a->nodes[i].transitionCount; j++) {
+            printf("  -> %s via %s\n",
+                   a->nodes[i].transition[j].nextNode->Id,
+                   a->nodes[i].transition[j].etiquette);
+        }
+    }
+}
+
+int main() {
+    char exp[] = "a*b";
+    automate* a = processExpression(exp);
+    afficherAutomate(a);
+    genererficher(a);
+    return 0;
+}

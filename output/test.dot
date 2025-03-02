@@ -7,12 +7,12 @@ digraph Automate {
     B->d;
     E->final;
     b->J;
-    A->B [label="o,t,e,r,i,y"];
+    A->B [label="+"];
     C->A [label="c"];
     A->F [label="r"];
     A->J [label="r"];
     C->F [label="l"];
-    C->D [label="k,b"];
+    C->D [label="b"];
     F->E [label="m"];
-    B->E [label="r"];
+    B->E [label="+"];
 }
